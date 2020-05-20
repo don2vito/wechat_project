@@ -1,0 +1,8 @@
+let
+    源 = Excel.CurrentWorkbook(){[Name="表1"]}[Content],
+    更改的类型 = Table.TransformColumnTypes(源,{{"name", type text}, {"text", type text}}),
+    分组的行 = Table.Group(更改的类型, {"name"}, {{"计数", each Text.Combine([text],"-")}}),
+    按分隔符拆分列 = Table.SplitColumn(分组的行, "计数", Splitter.SplitTextByDelimiter("-", QuoteStyle.Csv), {"计数.1", "计数.2", "计数.3", "计数.4"}),
+    更改的类型1 = Table.TransformColumnTypes(按分隔符拆分列,{{"计数.1", type text}, {"计数.2", type text}, {"计数.3", type text}, {"计数.4", type text}})
+in
+    更改的类型1

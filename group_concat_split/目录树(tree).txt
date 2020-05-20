@@ -1,0 +1,22 @@
+C:\Users\don2v\Desktop\group_concat_split>tree /F
+卷 Windows 的文件夹 PATH 列表
+卷序列号为 7616-4D3B
+C:.
+│  toy_data .xlsx
+│  目录树(tree -f).txt
+│
+├─Excel(2019 +)
+│      example_excel.xlsx
+│
+├─Power Query(2010 SP1 +)
+│      example.xlsx
+│      M 语言代码.txt
+│      插件下载链接.txt
+│
+├─Python
+│      example_python.xlsx
+│      group_concat.py
+│
+└─SQL(PostgreSQL)
+        example.sql
+        example_SQL.xlsx
