@@ -5,4 +5,4 @@
 
 #### 文件夹说明
 
-1.  group_concat_split：分组拆分合并文本问题
+1.  group_concat_split：分组合并拆分文本问题
