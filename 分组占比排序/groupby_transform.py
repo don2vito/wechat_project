@@ -20,7 +20,7 @@ df['组内占比（百分比）'] = df['组内占比'].apply(lambda x: format(x,
 df = df.drop(columns = ['组内指标合计数'])
 # print(df.info())
 df_io = df[['事业部','部门','指标','组内占比（百分比）','组内排名（降序）']]
-在已有 Excel 文件中生成新的 sheet
+# 在已有 Excel 文件中生成新的 sheet
 writer=pd.ExcelWriter('./python_result.xlsx',mode='a',engine='openpyxl')
 df_io.to_excel(writer,sheet_name='group_transform_result', index=False)
 writer.save()
