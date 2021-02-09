@@ -62,7 +62,7 @@ def filter_yield(col_name):
         return col_name
 
 df4 = pd.read_excel('./多sheet.xlsx', sheet_name='Sheet3',usecols=filter_yield)
-print(f'使用 Excel 字段英文字母后的数据如下：\n{df4}')
+print(f'使用自定义函数后的数据如下：\n{df4}')
 df4.to_excel('./usecols参数示例4.xlsx', index=False, freeze_panes=(1,0))
 print('=======================================================================================')
 
