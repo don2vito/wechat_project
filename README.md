@@ -24,3 +24,4 @@
 17. XML 读写
 18. 拍平 MutiIndex
 19. fake_data
+20. 统计问卷平均分值
