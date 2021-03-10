@@ -36,3 +36,4 @@
 29. 生成随机数
 30. headers 转 dict
 31. 关键词模糊匹配
+32. demjson 处理不规范 JSON 格式
