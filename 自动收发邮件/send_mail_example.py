@@ -21,7 +21,7 @@ with yagmail.SMTP(user='发件人邮箱地址',host='邮箱的 smtp 网址') as 
 from imbox import Imbox
 
 pwd = keyring.get_password('yagmail','邮箱地址')
-with Imbox('邮箱的 imap 网址','邮箱地址',pwd) as imbox:
+with Imbox('邮箱的 imap 网址','邮箱地址',pwd,ssl=True) as imbox:
     all_inbox_messages = imbox.messages()
     for uid, message in all_inbox_messages:
         print(message.subject)
