@@ -72,3 +72,4 @@
 65. 使用 pandas-profiling 生成 EDA 报告
 66. 使用 camelot-py 识别表格内容
 67. 多种方式美化输出表格和进度条
+68. excel 数字转日期
