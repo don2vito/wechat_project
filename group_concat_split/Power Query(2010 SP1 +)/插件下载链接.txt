@@ -1,6 +1,0 @@
-Excel 2010 SP1 或2013
-https://www.microsoft.com/zh-cn/download/confirmation.aspx?id=39379
-
-Excel 2016以上原生自带
-
-亦可使用Power BI Desktop
