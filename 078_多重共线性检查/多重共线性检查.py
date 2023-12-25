@@ -8,6 +8,22 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 df = pd.read_csv("./boston_housing_data.csv",sep=",")
 df = df.iloc[:,0:-1]
 
+
+# 1- CRIM     犯罪率；per capita crime rate by town
+# 2- ZN       proportion of residential land zoned for lots over 25,000 sq.ft.
+# 3- INDUS    非零售商业用地占比；proportion of non-retail business acres per town
+# 4- CHAS     是否临Charles河；Charles River dummy variable (= 1 if tract bounds river; 0 otherwise)
+# 5- NOX      氮氧化物浓度；nitric oxides concentration (parts per 10 million)
+# 6- RM       房屋房间数；average number of rooms per dwelling
+# 7- AGE      房屋年龄；proportion of owner-occupied units built prior to 1940
+# 8- DIS      和就业中心的距离；weighted distances to five Boston employment centres
+# 9- RAD      是否容易上高速路；index of accessibility to radial highways
+# 10- TAX      税率；full-value property-tax rate per $10,000
+# 11- PTRATIO  学生人数比老师人数；pupil-teacher ratio by town
+# 12- B        城镇黑人比例计算的统计值；1000(Bk - 0.63)^2 where Bk is the proportion of black people by town
+# 13- LSTAT    低收入人群比例；% lower status of the population
+
+
 # 添加一个截距列
 X = sm.add_constant(df)
 
@@ -33,21 +49,36 @@ print(vif[vif["T/F"] == True])
 
 
 # 加载波士顿房价数据集
-from sklearn.datasets import load_boston
-boston = load_boston()
+# from sklearn.datasets import load_boston
+# boston = load_boston()
 
 # 创建一个DataFrame来存储数据集的特征
-df = pd.DataFrame(boston.data, columns=boston.feature_names)
+# df2 = pd.DataFrame(boston.data, columns=boston.feature_names)
 
 # 添加目标变量
 # df['PRICE'] = boston.target
 
+data_url = "http://lib.stat.cmu.edu/datasets/boston"
+raw_df = pd.read_csv(data_url, sep=r"\s+", skiprows=22, header=None)
+df2 = pd.DataFrame(np.hstack([raw_df.values[::2, :], raw_df.values[1::2, :2]]))
+# target = raw_df.values[1::2, 2]
+
+# 添加一个截距列
+Y = sm.add_constant(df2)
+
 # 计算特征之间的相关系数矩阵
-corr_matrix = df.corr()
+# corr_matrix = X.corr()
 
 # 计算VIF
-vif = pd.DataFrame()
-vif["Features"] = corr_matrix.index
-vif["VIF Factor"] = [variance_inflation_factor(df.values, i) for i in range(df.shape[1])]
+vif2 = pd.DataFrame()
+vif2["Features"] = Y.columns
+vif2["VIF Factor"] = [variance_inflation_factor(Y.values, i) for i in range(Y.shape[1])]
+vif2["VIF Factor"] = vif2["VIF Factor"].round(decimals=0)
+vif2["VIF Factor"] = vif2["VIF Factor"].astype("int")
+vif2["T/F"] = vif2["VIF Factor"].apply(lambda x:True if x >= 10 else False)
+vif2 = vif2.sort_values(by="VIF Factor",ascending=False)
 
-print(vif)
+print(vif2[vif2["T/F"] == True])
+
+#   Features  VIF Factor   T/F
+# 0    const         585  True
