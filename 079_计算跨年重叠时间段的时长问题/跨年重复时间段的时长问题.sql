@@ -20,7 +20,7 @@ CASE
 		WHEN std_edt IS NULL THEN start_time 
 		WHEN 
 			(
-				DATE_PART( 'day', start_time :: TIMESTAMP - std_edt :: TIMESTAMP ) * 24 * 60 * 60 + DATE_PART( 'hour', start_time :: TIMESTAMP - std_edt :: TIMESTAMP ) 
+			DATE_PART( 'day', start_time :: TIMESTAMP - std_edt :: TIMESTAMP ) * 24 * 60 * 60 + DATE_PART( 'hour', start_time :: TIMESTAMP - std_edt :: TIMESTAMP ) 
 			 * 60 * 60 + DATE_PART( 'minute', start_time :: TIMESTAMP - std_edt :: TIMESTAMP ) 
 			 * 60 + DATE_PART( 'second', start_time :: TIMESTAMP - std_edt :: TIMESTAMP ))> 0 THEN
 			start_time ELSE std_edt :: TIMESTAMP + '1 day' 
@@ -33,7 +33,7 @@ CASE
 	
 c_t AS ( SELECT b_t."ID",b_t."year",start_time,end_time,
 (
-				DATE_PART( 'day',end_time :: TIMESTAMP - start_time :: TIMESTAMP ) * 24 * 60 * 60 + DATE_PART( 'hour', end_time :: TIMESTAMP - start_time :: TIMESTAMP ) 
+			DATE_PART( 'day',end_time :: TIMESTAMP - start_time :: TIMESTAMP ) * 24 * 60 * 60 + DATE_PART( 'hour', end_time :: TIMESTAMP - start_time :: TIMESTAMP ) 
 			 * 60 * 60 + DATE_PART( 'minute', end_time :: TIMESTAMP - start_time :: TIMESTAMP ) 
 			 * 60 + DATE_PART( 'second', end_time:: TIMESTAMP - start_time :: TIMESTAMP )) AS diff
 
