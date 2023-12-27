@@ -5,9 +5,9 @@ WITH a_t AS (
 		SELECT
 			"跨年重复时间段的时长问题"."ID",
 			"跨年重复时间段的时长问题"."year",
-			"跨年重复时间段的时长问题".start_time,
-			"跨年重复时间段的时长问题".end_time,
-			MAX ( "跨年重复时间段的时长问题".end_time ) OVER ( PARTITION BY "跨年重复时间段的时长问题"."ID", "跨年重复时间段的时长问题"."year" ORDER BY start_time,end_time ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING ) AS std_edt 
+			start_time,
+			end_time,
+			MAX ( end_time ) OVER ( PARTITION BY "跨年重复时间段的时长问题"."ID", "跨年重复时间段的时长问题"."year" ORDER BY start_time,end_time ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING ) AS std_edt 
 		FROM
 		"跨年重复时间段的时长问题" 
 	) ,
