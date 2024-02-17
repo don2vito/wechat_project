@@ -137,6 +137,7 @@ def plot_score_hist(df, y_col, score_col, cutoff=None):
     if cutoff != None:
         plt.axvline(x=cutoff)
     plt.legend()
+    plt.savefig('plot_score_hist.png')
     return plt
 
 plot_score_hist(data, 'target_class', 'uplift_score')
