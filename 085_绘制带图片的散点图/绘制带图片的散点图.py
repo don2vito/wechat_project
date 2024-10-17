@@ -7,7 +7,7 @@ from PIL import Image
 import numpy as np
 
 # 导入一个包含了国家、金牌总数和参赛运动员人数的数据集
-df = pd.DataFrame(pd.read_excel('./样例数据.xlsx',sheet_name='Sheet2'))
+df = pd.read_excel('./样例数据.xlsx',sheet_name='Sheet2')
 
 # 利用循环获取每个不同国家国旗的图片路径
 paths = list()
