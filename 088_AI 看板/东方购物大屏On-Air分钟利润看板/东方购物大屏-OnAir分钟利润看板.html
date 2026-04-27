@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>东方购物大屏 On-Air 分钟利润看板</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #F5F6FA;
+      --bg-secondary: #FFFFFF;
+      --bg-card: #F8F9FC;
+      --bg-card-hover: #F0F2F8;
+      --border-primary: #E2E5EE;
+      --border-accent: #CBD1E0;
+      --text-primary: #1A202C;
+      --text-secondary: #5A6577;
+      --text-muted: #94A3B8;
+      --accent-blue: #3B82F6;
+      --accent-cyan: #0EA5E9;
+      --accent-green: #10B981;
+      --accent-red: #EF4444;
+      --accent-amber: #F59E0B;
+      --bar-current: #3B82F6;
+      --bar-compare: #BFDBFE;
+      --line-trend: #EF4444;
+      --grid-line: rgba(0,0,0,0.06);
+      --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-card-hover: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      opacity: 0.008;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle, rgba(0,0,0,0.03) 1px, transparent 1px);
+      background-size: 20px 20px;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    .dashboard {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px 32px 40px;
+    }
+
+    /* ===== HEADER ===== */
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+      position: relative;
+    }
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: -16px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border-accent), transparent);
+    }
+    .header-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .header-title {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: var(--text-primary);
+    }
+    .header-title span { color: var(--accent-cyan); }
+    .header-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+    .live-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: var(--accent-red);
+      border-radius: 50%;
+      margin-right: 6px;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239,68,68,0.6); }
+      50% { opacity: 0.6; box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+    }
+
+    /* ===== UPLOAD SECTION ===== */
+    .upload-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    .upload-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .upload-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .upload-box {
+      position: relative;
+      border: 2px dashed var(--border-accent);
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+      background: var(--bg-secondary);
+    }
+    .upload-box:hover {
+      border-color: var(--accent-blue);
+      background: var(--bg-card);
+    }
+    .upload-box.dragover {
+      border-color: var(--accent-blue);
+      background: rgba(59,130,246,0.04);
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
+    .upload-box.uploaded {
+      border-style: solid;
+      border-color: var(--accent-green);
+      background: rgba(16,185,129,0.03);
+    }
+    .upload-box input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .upload-text {
+      font-size: 13px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    .upload-box.uploaded .upload-text {
+      color: var(--accent-green);
+      font-weight: 500;
+    }
+    .upload-icon {
+      display: block;
+      margin: 0 auto 8px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+    .upload-box.uploaded .upload-icon {
+      color: var(--accent-green);
+    }
+
+    /* ===== FILTER BAR ===== */
+    .filter-bar {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+      padding: 20px 24px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: 8px;
+      box-shadow: var(--shadow-card);
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .filter-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .filter-select {
+      appearance: none;
+      background: var(--bg-card);
+      border: 1px solid var(--border-primary);
+      color: var(--text-primary);
+      padding: 10px 36px 10px 14px;
+      font-size: 13px;
+      font-family: 'Noto Sans SC', sans-serif;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+    .filter-select:hover {
+      border-color: var(--border-accent);
+      background-color: var(--bg-card-hover);
+    }
+    .filter-select:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+    }
+
+    /* ===== CHART SECTION ===== */
+    .chart-section {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+      position: relative;
+      box-shadow: var(--shadow-card);
+    }
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .chart-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: 0.5px;
+    }
+    .chart-legend {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 1px;
+    }
+    .legend-color.current { background: var(--bar-current); }
+    .legend-color.compare {
+      background: var(--bar-compare);
+      border: 1px solid rgba(59,130,246,0.3);
+    }
+    .legend-color.trend {
+      width: 16px;
+      height: 2px;
+      background: var(--line-trend);
+      border-radius: 1px;
+    }
+    .chart-container {
+      position: relative;
+      height: 320px;
+    }
+
+    /* ===== TABLES SECTION ===== */
+    .tables-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .table-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow-card);
+    }
+    .table-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 20px;
+      background: linear-gradient(135deg, rgba(59,130,246,0.06), rgba(14,165,233,0.03));
+      border-bottom: 1px solid var(--border-primary);
+    }
+    .table-header-icon { color: var(--accent-blue); }
+    .table-header-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: 0.5px;
+    }
+    .table-scroll-wrapper {
+      max-height: 520px;
+      overflow-y: auto;
+    }
+    .table-scroll-wrapper thead th {
+      position: sticky;
+      top: 0;
+      background: var(--bg-card);
+      z-index: 1;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    thead th {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 12px 20px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-primary);
+      background: var(--bg-card);
+      cursor: pointer;
+      transition: color 0.2s;
+      user-select: none;
+      white-space: nowrap;
+    }
+    thead th:hover { color: var(--text-secondary); }
+    thead th .sort-icon {
+      display: inline-flex;
+      margin-left: 4px;
+      vertical-align: middle;
+      color: var(--accent-blue);
+    }
+    tbody tr {
+      border-bottom: 1px solid var(--grid-line);
+      transition: background 0.2s;
+    }
+    tbody tr:hover { background: rgba(59,130,246,0.04); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td {
+      padding: 11px 20px;
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+    tbody td:first-child {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    .td-mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+    .change-arrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .change-arrow.up { color: var(--accent-green); }
+    .change-arrow.down { color: var(--accent-red); }
+    .change-arrow.na { color: var(--text-muted); }
+
+    /* ===== EMPTY STATE ===== */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state i {
+      display: block;
+      margin: 0 auto 12px;
+      opacity: 0.4;
+    }
+    .empty-state p {
+      font-size: 14px;
+    }
+
+    /* ===== FOOTER ===== */
+    .footer {
+      text-align: center;
+      margin-top: 32px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-primary);
+    }
+    .footer-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+    }
+
+    /* ===== ANIMATIONS ===== */
+    .reveal {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 1100px) {
+      .filter-bar {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    @media (max-width: 900px) {
+      .dashboard { padding: 16px; }
+      .filter-bar {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        padding: 16px;
+      }
+      .tables-section { grid-template-columns: 1fr; }
+      .header-title { font-size: 20px; }
+      .chart-container { height: 240px; }
+      .upload-section { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+      .filter-bar { grid-template-columns: 1fr; }
+      .chart-legend { flex-wrap: wrap; gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+
+    <!-- HEADER -->
+    <header class="header reveal">
+      <div class="header-label">Oriental Shopping Dashboard</div>
+      <h1 class="header-title">东方购物大屏 <span>On-Air</span> 分钟利润看板</h1>
+      <div class="header-time">
+        <span class="live-dot"></span>
+        <span id="liveTime"></span>
+      </div>
+    </header>
+
+    <!-- UPLOAD SECTION -->
+    <section class="upload-section reveal" id="uploadSection">
+      <div class="upload-group">
+        <label class="upload-label">当期数据文件</label>
+        <div class="upload-box" id="currentUploadBox">
+          <input type="file" accept=".xlsx,.xls" id="currentFileInput">
+          <i data-lucide="upload-cloud" class="upload-icon" style="width:24px;height:24px;"></i>
+          <span class="upload-text" id="currentFileName">点击或拖拽上传当期效率文件</span>
+        </div>
+      </div>
+      <div class="upload-group">
+        <label class="upload-label">对比期数据文件</label>
+        <div class="upload-box" id="compareUploadBox">
+          <input type="file" accept=".xlsx,.xls" id="compareFileInput">
+          <i data-lucide="upload-cloud" class="upload-icon" style="width:24px;height:24px;"></i>
+          <span class="upload-text" id="compareFileName">点击或拖拽上传对比期效率文件</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- FILTER BAR -->
+    <div class="filter-bar reveal" id="filterBar">
+      <div class="filter-group">
+        <label class="filter-label">频道 Channel</label>
+        <select class="filter-select" id="filterChannel">
+          <option value="all">全部频道</option>
+          <option value="11">11频道</option>
+          <option value="12">12频道</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">直/录播 Type</label>
+        <select class="filter-select" id="filterBroadcastType">
+          <option value="all">全部</option>
+          <option value="live">直播</option>
+          <option value="replay">录播</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">时间段 Period</label>
+        <select class="filter-select" id="filterTimePeriod">
+          <option value="all">全部</option>
+          <option value="daytime">白天</option>
+          <option value="evening">晚间</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">分类 Category</label>
+        <select class="filter-select" id="filterDayType">
+          <option value="all">全部</option>
+          <option value="weekday">工作日</option>
+          <option value="weekend">周末</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">大分类</label>
+        <select class="filter-select" id="filterCategory">
+          <option value="all">全部大分类</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- CHART SECTION -->
+    <section class="chart-section reveal" id="chartSection">
+      <div class="chart-header">
+        <h2 class="chart-title">整体分钟利润情况</h2>
+        <div class="chart-legend">
+          <div class="legend-item">
+              <div class="legend-color compare"></div>
+              <span>对比期</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color current"></div>
+              <span>当期</span>
+            </div>
+          <div class="legend-item">
+            <div class="legend-color trend"></div>
+            <span>同比变化</span>
+          </div>
+        </div>
+      </div>
+      <div class="chart-container" id="chartContainer">
+        <canvas id="channelChart"></canvas>
+        <div class="empty-state" id="chartEmpty">
+          <i data-lucide="bar-chart-3" style="width:40px;height:40px;"></i>
+          <p>请上传当期和对比期数据文件以生成图表</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TABLES SECTION -->
+    <section class="tables-section" id="tablesSection">
+      <!-- Left Table -->
+      <div class="table-card reveal">
+        <div class="table-header">
+          <i data-lucide="trending-up" class="table-header-icon" style="width:16px;height:16px;"></i>
+          <h3 class="table-header-title">品类分钟利润</h3>
+        </div>
+        <div class="table-scroll-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>品类</th>
+                <th>当期 <span class="sort-icon"><i data-lucide="arrow-down" style="width:12px;height:12px;"></i></span></th>
+                <th>对比期</th>
+                <th>同比变化</th>
+              </tr>
+            </thead>
+            <tbody id="profitTableBody">
+              <tr><td colspan="4" class="empty-state"><p>等待数据加载...</p></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <!-- Right Table -->
+      <div class="table-card reveal">
+        <div class="table-header">
+          <i data-lucide="bar-chart-3" class="table-header-icon" style="width:16px;height:16px;"></i>
+          <h3 class="table-header-title">播出档数</h3>
+        </div>
+        <div class="table-scroll-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>品类</th>
+                <th>当期</th>
+                <th>对比期</th>
+                <th>对比</th>
+              </tr>
+            </thead>
+            <tbody id="countTableBody">
+              <tr><td colspan="4" class="empty-state"><p>等待数据加载...</p></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer reveal">
+      <p class="footer-text">ORIENTAL SHOPPING &middot; ON-AIR PROFIT DASHBOARD</p>
+    </footer>
+
+  </div>
+
+  <script>
+    // ===== GLOBAL STATE =====
+    const state = {
+      rawData: { current: [], compare: [] },
+      processedData: { current: [], compare: [] },
+      filters: {
+        channel: 'all',
+        broadcastType: 'all',
+        timePeriod: 'all',
+        dayType: 'all',
+        category: 'all'
+      },
+      categoryOrder: [],
+      filesLoaded: { current: false, compare: false }
+    };
+
+    let channelChartInstance = null;
+
+    // ===== UTILITIES =====
+    function parseDate(value) {
+      if (value instanceof Date && !isNaN(value)) return value;
+      if (typeof value === 'number') {
+        const epoch = new Date(1899, 11, 30);
+        return new Date(epoch.getTime() + value * 86400000);
+      }
+      if (typeof value === 'string') {
+        const d = new Date(value.replace(/\//g, '-'));
+        return isNaN(d.getTime()) ? new Date(NaN) : d;
+      }
+      return new Date(NaN);
+    }
+
+    function formatNumber(num, decimals = 2) {
+      return num.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+
+    // ===== FILE UPLOAD =====
+    function handleFileUpload(file, type) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+        state.rawData[type] = jsonData;
+        state.filesLoaded[type] = true;
+        updateUploadUI(type, file.name);
+        if (state.filesLoaded.current && state.filesLoaded.compare) {
+          processData();
+          populateCategoryFilter();
+          renderAll();
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function updateUploadUI(type, fileName) {
+      const boxId = type === 'current' ? 'currentUploadBox' : 'compareUploadBox';
+      const textId = type === 'current' ? 'currentFileName' : 'compareFileName';
+      document.getElementById(boxId).classList.add('uploaded');
+      document.getElementById(textId).textContent = fileName;
+    }
+
+    function setupUploadEvents() {
+      ['current', 'compare'].forEach(type => {
+        const inputId = type === 'current' ? 'currentFileInput' : 'compareFileInput';
+        const boxId = type === 'current' ? 'currentUploadBox' : 'compareUploadBox';
+        const input = document.getElementById(inputId);
+        const box = document.getElementById(boxId);
+
+        input.addEventListener('change', function() {
+          if (this.files.length > 0) handleFileUpload(this.files[0], type);
+        });
+
+        box.addEventListener('dragover', function(e) {
+          e.preventDefault();
+          this.classList.add('dragover');
+        });
+        box.addEventListener('dragleave', function() {
+          this.classList.remove('dragover');
+        });
+        box.addEventListener('drop', function(e) {
+          e.preventDefault();
+          this.classList.remove('dragover');
+          if (e.dataTransfer.files.length > 0) handleFileUpload(e.dataTransfer.files[0], type);
+        });
+      });
+    }
+
+    // ===== DATA PROCESSING =====
+    function processData() {
+      state.processedData.current = cleanData(state.rawData.current);
+      state.processedData.compare = cleanData(state.rawData.compare);
+    }
+
+    function cleanData(rawData) {
+      return rawData.filter(row => {
+        const hour = Number(row['播放开始小时']);
+        if ([1, 2, 3, 4].includes(hour)) return false;
+        const excludedMd = ['全装修工程', '寿险', '汽车整车', '房产'];
+        if (excludedMd.includes(row['md名'])) return false;
+        return true;
+      }).map(row => {
+        const date = parseDate(row['播放日期']);
+        const dayOfWeek = date.getDay();
+        row._dayType = (dayOfWeek === 0 || dayOfWeek === 6) ? 'weekend' : 'weekday';
+        row._broadcastType = (row['播放类型'] === '再播放') ? 'replay' : 'live';
+        const h = Number(row['播放开始小时']);
+        row._timePeriod = (h >= 8 && h <= 17) ? 'daytime' : 'evening';
+        if (row['中分类名称'] === '游览' && Number(row['毛利率(%)']) === 100) {
+          row['On-Air利润'] = Number(row['On-Air利润']) * 0.1;
+        }
+        return row;
+      });
+    }
+
+    function applyFilters(data) {
+      const f = state.filters;
+      return data.filter(row => {
+        if (f.channel !== 'all') {
+          if (String(row['频道']).replace('频道', '') !== f.channel) return false;
+        }
+        if (f.broadcastType !== 'all') {
+          if (row._broadcastType !== f.broadcastType) return false;
+        }
+        if (f.timePeriod !== 'all') {
+          if (row._timePeriod !== f.timePeriod) return false;
+        }
+        if (f.dayType !== 'all') {
+          if (row._dayType !== f.dayType) return false;
+        }
+        if (f.category !== 'all') {
+          if (row['大分类名称'] !== f.category) return false;
+        }
+        return true;
+      });
+    }
+
+    function aggregateByCategory(data) {
+      const map = {};
+      data.forEach(row => {
+        const cat = row['大分类名称'];
+        if (!cat) return;
+        if (!map[cat]) {
+          map[cat] = { category: cat, totalProfit: 0, totalMinutes: 0, count: 0 };
+        }
+        map[cat].totalProfit += (Number(row['On-Air利润']) || 0);
+        map[cat].totalMinutes += (Number(row['希望播放（分）']) || 0);
+        map[cat].count += 1;
+      });
+      Object.values(map).forEach(item => {
+        item.avgMinuteProfit = item.totalMinutes > 0 ? item.totalProfit / item.totalMinutes : 0;
+      });
+      return Object.values(map);
+    }
+
+    function calculateChannelProfit(data) {
+      const channels = { '11': { totalProfit: 0, totalMinutes: 0 }, '12': { totalProfit: 0, totalMinutes: 0 } };
+      const broadcastTypes = { 'live': { totalProfit: 0, totalMinutes: 0 }, 'replay': { totalProfit: 0, totalMinutes: 0 } };
+      data.forEach(row => {
+        const ch = String(row['频道']).replace('频道', '');
+        if (channels[ch]) {
+          channels[ch].totalProfit += (Number(row['On-Air利润']) || 0);
+          channels[ch].totalMinutes += (Number(row['希望播放（分）']) || 0);
+        }
+        const bt = row._broadcastType;
+        if (broadcastTypes[bt]) {
+          broadcastTypes[bt].totalProfit += (Number(row['On-Air利润']) || 0);
+          broadcastTypes[bt].totalMinutes += (Number(row['希望播放（分）']) || 0);
+        }
+      });
+      const result = {};
+      Object.entries(channels).forEach(([ch, v]) => {
+        result[ch] = v.totalMinutes > 0 ? v.totalProfit / v.totalMinutes : 0;
+      });
+      Object.entries(broadcastTypes).forEach(([bt, v]) => {
+        result[bt] = v.totalMinutes > 0 ? v.totalProfit / v.totalMinutes : 0;
+      });
+      const allProfit = Object.values(channels).reduce((s, v) => s + v.totalProfit, 0);
+      const allMinutes = Object.values(channels).reduce((s, v) => s + v.totalMinutes, 0);
+      result['all'] = allMinutes > 0 ? allProfit / allMinutes : 0;
+      return result;
+    }
+
+    // ===== RENDERING =====
+    function renderAll() {
+      renderChannelChart();
+      renderProfitTable();
+      renderCountTable();
+      document.getElementById('chartEmpty').style.display = 'none';
+    }
+
+    function renderChannelChart() {
+      const currentProfit = calculateChannelProfit(state.processedData.current);
+      const compareProfit = calculateChannelProfit(state.processedData.compare);
+
+      const labels = ['双频', '11频道', '12频道', '直播', '录播'];
+      const keys = ['all', '11', '12', 'live', 'replay'];
+      const currentValues = keys.map(k => currentProfit[k] || 0);
+      const compareValues = keys.map(k => compareProfit[k] || 0);
+
+      const changes = currentValues.map((cv, i) => {
+        const pv = compareValues[i];
+        return pv !== 0 ? ((cv - pv) / pv * 100) : 0;
+      });
+
+      const ctx = document.getElementById('channelChart').getContext('2d');
+      if (channelChartInstance) channelChartInstance.destroy();
+
+      channelChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: '对比期',
+              data: compareValues,
+              backgroundColor: 'rgba(191, 219, 254, 0.7)',
+              borderColor: 'rgba(59, 130, 246, 0.2)',
+              borderWidth: 1,
+              borderRadius: 3,
+              barPercentage: 0.5,
+              categoryPercentage: 0.6,
+              order: 2
+            },
+            {
+              label: '当期',
+              data: currentValues,
+              backgroundColor: 'rgba(59, 130, 246, 0.85)',
+              borderColor: '#3B82F6',
+              borderWidth: 0,
+              borderRadius: 3,
+              barPercentage: 0.5,
+              categoryPercentage: 0.6,
+              order: 3
+            },
+            {
+              label: '同比变化%',
+              type: 'line',
+              data: changes,
+              borderColor: '#EF4444',
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              borderWidth: 2,
+              borderDash: [6, 4],
+              pointRadius: 6,
+              pointBackgroundColor: '#EF4444',
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+              tension: 0.3,
+              yAxisID: 'y1',
+              order: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1A202C',
+              titleFont: { family: 'Noto Sans SC', size: 12 },
+              bodyFont: { family: 'JetBrains Mono', size: 11 },
+              callbacks: {
+                label: function(context) {
+                  if (context.dataset.yAxisID === 'y1') {
+                    return '同比变化: ' + context.parsed.y.toFixed(1) + '%';
+                  }
+                  return context.dataset.label + ': ¥' + context.parsed.y.toFixed(2);
+                }
+              }
+            },
+            datalabels: false
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { font: { family: 'Noto Sans SC', size: 12 }, color: '#5A6577' }
+            },
+            y: {
+              position: 'left',
+              display: true,
+              grid: { display: false },
+              ticks: { display: false },
+              title: { display: false },
+              beginAtZero: true
+            },
+            y1: {
+              position: 'right',
+              display: true,
+              grid: { display: false },
+              ticks: { display: false },
+              title: { display: false }
+            }
+          },
+          animation: {
+            duration: 800,
+            easing: 'easeOutQuart',
+            onComplete: function() {
+              const chart = this;
+              const ctx = chart.ctx;
+              ctx.save();
+              ctx.font = '700 11px "JetBrains Mono", monospace';
+
+              // Bar data labels (分钟利润，整数)
+              chart.data.datasets.forEach(function(dataset, dsIndex) {
+                if (dataset.type === 'line') return;
+                const meta = chart.getDatasetMeta(dsIndex);
+                meta.data.forEach(function(bar, index) {
+                  const value = dataset.data[index];
+                  ctx.fillStyle = dsIndex === 0 ? '#5A6577' : '#1A202C';
+                  ctx.textAlign = 'center';
+                  ctx.textBaseline = 'bottom';
+                  ctx.fillText('¥' + Math.round(value), bar.x, bar.y - 6);
+                });
+              });
+
+              // Line data labels (同比变化，0.0%格式)
+              var lineMeta = chart.getDatasetMeta(2);
+              lineMeta.data.forEach(function(point, index) {
+                var value = chart.data.datasets[2].data[index];
+                var sign = value >= 0 ? '+' : '';
+                ctx.fillStyle = '#EF4444';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText(sign + value.toFixed(1) + '%', point.x, point.y - 10);
+              });
+
+              ctx.restore();
+            }
+          }
+        }
+      });
+    }
+
+    function renderProfitTable() {
+      const filteredCurrent = applyFilters(state.processedData.current);
+      const filteredCompare = applyFilters(state.processedData.compare);
+      const currentAgg = aggregateByCategory(filteredCurrent);
+      const compareAgg = aggregateByCategory(filteredCompare);
+
+      const compareMap = {};
+      compareAgg.forEach(item => { compareMap[item.category] = item; });
+
+      currentAgg.sort((a, b) => b.avgMinuteProfit - a.avgMinuteProfit);
+      state.categoryOrder = currentAgg.map(item => item.category);
+
+      const tbody = document.getElementById('profitTableBody');
+      tbody.innerHTML = '';
+
+      if (currentAgg.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><p>无匹配数据</p></td></tr>';
+        return;
+      }
+
+      currentAgg.forEach(item => {
+        const compareItem = compareMap[item.category];
+        const compareProfit = compareItem ? compareItem.avgMinuteProfit : 0;
+        const change = compareProfit !== 0 ? ((item.avgMinuteProfit - compareProfit) / compareProfit * 100) : null;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + item.category + '</td>' +
+          '<td class="td-mono">¥' + formatNumber(item.avgMinuteProfit) + '</td>' +
+          '<td class="td-mono">¥' + formatNumber(compareProfit) + '</td>' +
+          '<td>' + renderChangeBadge(change) + '</td>';
+        tbody.appendChild(tr);
+      });
+
+      lucide.createIcons();
+      gsap.from(tbody.querySelectorAll('tr'), { opacity: 0, x: -12, duration: 0.4, stagger: 0.04, ease: 'power2.out' });
+    }
+
+    function renderCountTable() {
+      const filteredCurrent = applyFilters(state.processedData.current);
+      const filteredCompare = applyFilters(state.processedData.compare);
+      const currentAgg = aggregateByCategory(filteredCurrent);
+      const compareAgg = aggregateByCategory(filteredCompare);
+
+      const currentMap = {};
+      currentAgg.forEach(item => { currentMap[item.category] = item; });
+      const compareMap = {};
+      compareAgg.forEach(item => { compareMap[item.category] = item; });
+
+      const orderedCategories = state.categoryOrder || [];
+      const tbody = document.getElementById('countTableBody');
+      tbody.innerHTML = '';
+
+      if (orderedCategories.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><p>无匹配数据</p></td></tr>';
+        return;
+      }
+
+      orderedCategories.forEach(cat => {
+        const currentItem = currentMap[cat];
+        const compareItem = compareMap[cat];
+        const currentCount = currentItem ? currentItem.count : 0;
+        const compareCount = compareItem ? compareItem.count : 0;
+        const diff = currentCount - compareCount;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + cat + '</td>' +
+          '<td class="td-mono">' + currentCount + ' 档</td>' +
+          '<td class="td-mono">' + compareCount + ' 档</td>' +
+          '<td>' + renderCountDiff(diff) + '</td>';
+        tbody.appendChild(tr);
+      });
+
+      lucide.createIcons();
+      gsap.from(tbody.querySelectorAll('tr'), { opacity: 0, x: -12, duration: 0.4, stagger: 0.04, ease: 'power2.out' });
+    }
+
+    function renderChangeBadge(change) {
+      if (change === null) return '<span class="change-arrow na">N/A</span>';
+      const isPositive = change >= 0;
+      const arrow = isPositive ? 'trending-up' : 'trending-down';
+      const cls = isPositive ? 'up' : 'down';
+      const sign = isPositive ? '+' : '';
+      return '<span class="change-arrow ' + cls + '"><i data-lucide="' + arrow + '" style="width:12px;height:12px;"></i> ' + sign + change.toFixed(1) + '%</span>';
+    }
+
+    function renderCountDiff(diff) {
+      const isPositive = diff >= 0;
+      const arrow = isPositive ? 'trending-up' : 'trending-down';
+      const cls = isPositive ? 'up' : 'down';
+      const sign = isPositive ? '+' : '';
+      return '<span class="change-arrow ' + cls + '"><i data-lucide="' + arrow + '" style="width:12px;height:12px;"></i> ' + sign + diff + '</span>';
+    }
+
+    // ===== INTERACTION =====
+    function populateCategoryFilter() {
+      const allData = [...state.processedData.current, ...state.processedData.compare];
+      const categories = [...new Set(allData.map(row => row['大分类名称']).filter(Boolean))];
+      categories.sort();
+
+      const select = document.getElementById('filterCategory');
+      while (select.options.length > 1) select.remove(1);
+      categories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat;
+        option.textContent = cat;
+        select.appendChild(option);
+      });
+    }
+
+    function initFilterListeners() {
+      const filterMap = {
+        'filterChannel': 'channel',
+        'filterBroadcastType': 'broadcastType',
+        'filterTimePeriod': 'timePeriod',
+        'filterDayType': 'dayType',
+        'filterCategory': 'category'
+      };
+      Object.entries(filterMap).forEach(([id, key]) => {
+        document.getElementById(id).addEventListener('change', function() {
+          state.filters[key] = this.value;
+          if (state.filesLoaded.current && state.filesLoaded.compare) {
+            renderProfitTable();
+            renderCountTable();
+          }
+          gsap.fromTo(this, { scale: 0.98 }, { scale: 1, duration: 0.3, ease: 'back.out(2)' });
+        });
+      });
+    }
+
+    // ===== INIT =====
+    lucide.createIcons();
+
+    function updateTime() {
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      document.getElementById('liveTime').textContent =
+        now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) + ' ' +
+        pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds()) + ' CST';
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
+
+    gsap.registerPlugin(ScrollTrigger);
+    gsap.to('.reveal', { opacity: 1, y: 0, duration: 0.7, stagger: 0.12, ease: 'power3.out', delay: 0.2 });
+
+    setupUploadEvents();
+    initFilterListeners();
+  </script>
+</body>
+</html>

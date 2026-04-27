@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>东方购物大屏 On-Air 分钟利润看板</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #F5F6FA;
+      --bg-secondary: #FFFFFF;
+      --bg-card: #F8F9FC;
+      --bg-card-hover: #F0F2F8;
+      --border-primary: #E2E5EE;
+      --border-accent: #CBD1E0;
+      --text-primary: #1A202C;
+      --text-secondary: #5A6577;
+      --text-muted: #94A3B8;
+      --accent-blue: #3B82F6;
+      --accent-cyan: #0EA5E9;
+      --accent-green: #10B981;
+      --accent-red: #EF4444;
+      --accent-amber: #F59E0B;
+      --bar-current: #3B82F6;
+      --bar-compare: #BFDBFE;
+      --line-trend: #EF4444;
+      --grid-line: rgba(0,0,0,0.06);
+      --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-card-hover: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Noise overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      opacity: 0.008;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    /* Subtle dot pattern */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle, rgba(0,0,0,0.03) 1px, transparent 1px);
+      background-size: 20px 20px;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    .dashboard {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px 32px 40px;
+    }
+
+    /* ===== HEADER ===== */
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+      position: relative;
+    }
+
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: -16px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border-accent), transparent);
+    }
+
+    .header-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .header-title {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: var(--text-primary);
+    }
+
+    .header-title span {
+      color: var(--accent-cyan);
+    }
+
+    .header-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    .live-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: var(--accent-red);
+      border-radius: 50%;
+      margin-right: 6px;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239,68,68,0.6); }
+      50% { opacity: 0.6; box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+    }
+
+    /* ===== FILTER BAR ===== */
+    .filter-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+      padding: 20px 24px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: 8px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .filter-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .filter-select {
+      appearance: none;
+      background: var(--bg-card);
+      border: 1px solid var(--border-primary);
+      color: var(--text-primary);
+      padding: 10px 36px 10px 14px;
+      font-size: 13px;
+      font-family: 'Noto Sans SC', sans-serif;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+
+    .filter-select:hover {
+      border-color: var(--border-accent);
+      background-color: var(--bg-card-hover);
+    }
+
+    .filter-select:focus {
+      outline: none;
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+    }
+
+    /* ===== CHART SECTION ===== */
+    .chart-section {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+      position: relative;
+      box-shadow: var(--shadow-card);
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .chart-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: 0.5px;
+    }
+
+    .chart-legend {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 1px;
+    }
+
+    .legend-color.current {
+      background: var(--bar-current);
+    }
+
+    .legend-color.compare {
+      background: var(--bar-compare);
+      border: 1px dashed rgba(59,130,246,0.4);
+    }
+
+    .legend-color.trend {
+      width: 16px;
+      height: 2px;
+      background: var(--line-trend);
+      border-radius: 1px;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 320px;
+      display: flex;
+      align-items: flex-end;
+      padding: 0 20px;
+    }
+
+    /* Y-axis grid lines */
+    .chart-grid {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+
+    .grid-line {
+      height: 1px;
+      background: var(--grid-line);
+      position: relative;
+    }
+
+    .grid-label {
+      position: absolute;
+      left: -40px;
+      top: -8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .chart-bars-wrapper {
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-end;
+      width: 100%;
+      height: 100%;
+      position: relative;
+      z-index: 2;
+    }
+
+    .bar-group {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      position: relative;
+      flex: 1;
+      justify-content: center;
+    }
+
+    .bar-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .bar-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-primary);
+      opacity: 0.9;
+    }
+
+    .bar {
+      width: 36px;
+      border-radius: 2px 2px 0 0;
+      transition: opacity 0.3s, transform 0.3s;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .bar:hover {
+      opacity: 0.85;
+      transform: scaleY(1.02);
+      transform-origin: bottom;
+    }
+
+    .bar.current {
+      background: linear-gradient(180deg, #60A5FA, #3B82F6);
+      box-shadow: 0 2px 8px rgba(59,130,246,0.25);
+    }
+
+    .bar.compare {
+      background: linear-gradient(180deg, #DBEAFE, #BFDBFE);
+      border: 1px solid rgba(59,130,246,0.2);
+      border-bottom: none;
+    }
+
+    .bar-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 12px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    /* Trend line overlay */
+    .trend-line-svg {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .trend-point {
+      position: absolute;
+      z-index: 4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transform: translateX(-50%);
+    }
+
+    .trend-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 2px;
+      white-space: nowrap;
+    }
+
+    .trend-badge.positive {
+      color: var(--accent-green);
+      background: rgba(16,185,129,0.08);
+    }
+
+    .trend-badge.negative {
+      color: var(--accent-red);
+      background: rgba(239,68,68,0.08);
+    }
+
+    .trend-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--line-trend);
+      border-radius: 50%;
+      margin-top: 4px;
+      box-shadow: 0 0 6px rgba(239,68,68,0.4);
+    }
+
+    /* ===== TABLES SECTION ===== */
+    .tables-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .table-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-primary);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow-card);
+    }
+
+    .table-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 20px;
+      background: linear-gradient(135deg, rgba(59,130,246,0.06), rgba(14,165,233,0.03));
+      border-bottom: 1px solid var(--border-primary);
+    }
+
+    .table-header-icon {
+      color: var(--accent-blue);
+    }
+
+    .table-header-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: 0.5px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 12px 20px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-primary);
+      background: var(--bg-card);
+      cursor: pointer;
+      transition: color 0.2s;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    thead th:hover {
+      color: var(--text-secondary);
+    }
+
+    thead th .sort-icon {
+      display: inline-flex;
+      margin-left: 4px;
+      vertical-align: middle;
+      color: var(--accent-blue);
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--grid-line);
+      transition: background 0.2s;
+    }
+
+    tbody tr:hover {
+      background: rgba(59,130,246,0.04);
+    }
+
+    tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    tbody td {
+      padding: 11px 20px;
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+
+    tbody td:first-child {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .td-mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+
+    .td-positive {
+      color: var(--accent-green);
+    }
+
+    .td-negative {
+      color: var(--accent-red);
+    }
+
+    .change-arrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .change-arrow.up {
+      color: var(--accent-green);
+    }
+
+    .change-arrow.down {
+      color: var(--accent-red);
+    }
+
+    /* ===== FOOTER ===== */
+    .footer {
+      text-align: center;
+      margin-top: 32px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-primary);
+    }
+
+    .footer-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 2px;
+    }
+
+    /* ===== ANIMATIONS ===== */
+    .reveal {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+
+    .bar-animate {
+      transform: scaleY(0);
+      transform-origin: bottom;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 900px) {
+      .dashboard {
+        padding: 16px;
+      }
+      .filter-bar {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        padding: 16px;
+      }
+      .tables-section {
+        grid-template-columns: 1fr;
+      }
+      .header-title {
+        font-size: 20px;
+      }
+      .chart-container {
+        height: 240px;
+      }
+      .bar {
+        width: 24px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .filter-bar {
+        grid-template-columns: 1fr;
+      }
+      .chart-legend {
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+
+    <!-- HEADER -->
+    <header class="header reveal">
+      <div class="header-label">Oriental Shopping Dashboard</div>
+      <h1 class="header-title">东方购物大屏 <span>On-Air</span> 分钟利润看板</h1>
+      <div class="header-time">
+        <span class="live-dot"></span>
+        <span id="liveTime">2026-04-26 14:32:08 CST</span>
+      </div>
+    </header>
+
+    <!-- FILTER BAR -->
+    <div class="filter-bar reveal">
+      <div class="filter-group">
+        <label class="filter-label">频道 Channel</label>
+        <select class="filter-select">
+          <option>全部频道</option>
+          <option>8频道</option>
+          <option>11频道</option>
+          <option>12频道</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">直/录播 Type</label>
+        <select class="filter-select">
+          <option>全部</option>
+          <option>直播</option>
+          <option>录播</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">时间段 Period</label>
+        <select class="filter-select">
+          <option>今日</option>
+          <option>本周</option>
+          <option>本月</option>
+          <option>本季度</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">分类 Category</label>
+        <select class="filter-select">
+          <option>全部分类</option>
+          <option>珠宝首饰</option>
+          <option>数码家电</option>
+          <option>美妆护肤</option>
+          <option>服饰鞋包</option>
+          <option>食品生鲜</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- CHART SECTION -->
+    <section class="chart-section reveal">
+      <div class="chart-header">
+        <h2 class="chart-title">频道利润对比分析</h2>
+        <div class="chart-legend">
+          <div class="legend-item">
+            <div class="legend-color current"></div>
+            <span>当期</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color compare"></div>
+            <span>对比期</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color trend"></div>
+            <span>同比变化</span>
+          </div>
+        </div>
+      </div>
+      <div class="chart-container" id="chartContainer">
+        <!-- Grid lines -->
+        <div class="chart-grid">
+          <div class="grid-line"><span class="grid-label">500</span></div>
+          <div class="grid-line"><span class="grid-label">400</span></div>
+          <div class="grid-line"><span class="grid-label">300</span></div>
+          <div class="grid-line"><span class="grid-label">200</span></div>
+          <div class="grid-line"><span class="grid-label">100</span></div>
+          <div class="grid-line"><span class="grid-label">0</span></div>
+        </div>
+
+        <!-- Bars -->
+        <div class="chart-bars-wrapper" id="barsWrapper">
+          <!-- Group 1: 8频道 -->
+          <div class="bar-group" data-index="0">
+            <div class="bar-wrapper">
+              <span class="bar-value">428</span>
+              <div class="bar current bar-animate" style="height: 85%"></div>
+            </div>
+            <div class="bar-wrapper">
+              <span class="bar-value">395</span>
+              <div class="bar compare bar-animate" style="height: 79%"></div>
+            </div>
+            <div class="bar-label">8频道</div>
+          </div>
+          <!-- Group 2: 11频道 -->
+          <div class="bar-group" data-index="1">
+            <div class="bar-wrapper">
+              <span class="bar-value">312</span>
+              <div class="bar current bar-animate" style="height: 62%"></div>
+            </div>
+            <div class="bar-wrapper">
+              <span class="bar-value">348</span>
+              <div class="bar compare bar-animate" style="height: 70%"></div>
+            </div>
+            <div class="bar-label">11频道</div>
+          </div>
+          <!-- Group 3: 12频道 -->
+          <div class="bar-group" data-index="2">
+            <div class="bar-wrapper">
+              <span class="bar-value">256</span>
+              <div class="bar current bar-animate" style="height: 51%"></div>
+            </div>
+            <div class="bar-wrapper">
+              <span class="bar-value">289</span>
+              <div class="bar compare bar-animate" style="height: 58%"></div>
+            </div>
+            <div class="bar-label">12频道</div>
+          </div>
+          <!-- Group 4: 直播 -->
+          <div class="bar-group" data-index="3">
+            <div class="bar-wrapper">
+              <span class="bar-value">467</span>
+              <div class="bar current bar-animate" style="height: 93%"></div>
+            </div>
+            <div class="bar-wrapper">
+              <span class="bar-value">421</span>
+              <div class="bar compare bar-animate" style="height: 84%"></div>
+            </div>
+            <div class="bar-label">直播</div>
+          </div>
+          <!-- Group 5: 录播 -->
+          <div class="bar-group" data-index="4">
+            <div class="bar-wrapper">
+              <span class="bar-value">198</span>
+              <div class="bar current bar-animate" style="height: 40%"></div>
+            </div>
+            <div class="bar-wrapper">
+              <span class="bar-value">215</span>
+              <div class="bar compare bar-animate" style="height: 43%"></div>
+            </div>
+            <div class="bar-label">录播</div>
+          </div>
+        </div>
+
+        <!-- Trend line SVG -->
+        <svg class="trend-line-svg" id="trendSvg" preserveAspectRatio="none">
+          <polyline id="trendLine" fill="none" stroke="var(--line-trend)" stroke-width="2" stroke-dasharray="6,4" opacity="0.7"/>
+        </svg>
+
+        <!-- Trend points -->
+        <div class="trend-point" style="left: 10%; top: 8%">
+          <span class="trend-badge positive">+8.4%</span>
+          <div class="trend-dot"></div>
+        </div>
+        <div class="trend-point" style="left: 30%; top: 22%">
+          <span class="trend-badge negative">-10.3%</span>
+          <div class="trend-dot"></div>
+        </div>
+        <div class="trend-point" style="left: 50%; top: 18%">
+          <span class="trend-badge negative">-11.4%</span>
+          <div class="trend-dot"></div>
+        </div>
+        <div class="trend-point" style="left: 70%; top: 5%">
+          <span class="trend-badge positive">+10.9%</span>
+          <div class="trend-dot"></div>
+        </div>
+        <div class="trend-point" style="left: 90%; top: 20%">
+          <span class="trend-badge negative">-7.9%</span>
+          <div class="trend-dot"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TABLES SECTION -->
+    <section class="tables-section">
+      <!-- Left Table: On-Air分钟利润 -->
+      <div class="table-card reveal">
+        <div class="table-header">
+          <i data-lucide="trending-up" class="table-header-icon" style="width:16px;height:16px;"></i>
+          <h3 class="table-header-title">On-Air 分钟利润</h3>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>品类</th>
+              <th>当期 <span class="sort-icon"><i data-lucide="arrow-down" style="width:12px;height:12px;"></i></span></th>
+              <th>对比期</th>
+              <th>对比%</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>珠宝首饰</td>
+              <td class="td-mono">¥1,286</td>
+              <td class="td-mono">¥1,152</td>
+              <td><span class="change-arrow up"><i data-lucide="trending-up" style="width:12px;height:12px;"></i> 11.6%</span></td>
+            </tr>
+            <tr>
+              <td>数码家电</td>
+              <td class="td-mono">¥987</td>
+              <td class="td-mono">¥1,045</td>
+              <td><span class="change-arrow down"><i data-lucide="trending-down" style="width:12px;height:12px;"></i> -5.6%</span></td>
+            </tr>
+            <tr>
+              <td>美妆护肤</td>
+              <td class="td-mono">¥856</td>
+              <td class="td-mono">¥723</td>
+              <td><span class="change-arrow up"><i data-lucide="trending-up" style="width:12px;height:12px;"></i> 18.4%</span></td>
+            </tr>
+            <tr>
+              <td>服饰鞋包</td>
+              <td class="td-mono">¥634</td>
+              <td class="td-mono">¥698</td>
+              <td><span class="change-arrow down"><i data-lucide="trending-down" style="width:12px;height:12px;"></i> -9.2%</span></td>
+            </tr>
+            <tr>
+              <td>食品生鲜</td>
+              <td class="td-mono">¥412</td>
+              <td class="td-mono">¥389</td>
+              <td><span class="change-arrow up"><i data-lucide="trending-up" style="width:12px;height:12px;"></i> 5.9%</span></td>
+            </tr>
+            <tr>
+              <td>家居生活</td>
+              <td class="td-mono">¥298</td>
+              <td class="td-mono">¥321</td>
+              <td><span class="change-arrow down"><i data-lucide="trending-down" style="width:12px;height:12px;"></i> -7.2%</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Right Table: 播出/档数 -->
+      <div class="table-card reveal">
+        <div class="table-header">
+          <i data-lucide="bar-chart-3" class="table-header-icon" style="width:16px;height:16px;"></i>
+          <h3 class="table-header-title">播出 / 档数</h3>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>品类</th>
+              <th>当期</th>
+              <th>对比期</th>
+              <th>对比</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>珠宝首饰</td>
+              <td class="td-mono">42 档</td>
+              <td class="td-mono">38 档</td>
+              <td><span class="change-arrow up"><i data-lucide="trending-up" style="width:12px;height:12px;"></i> +4</span></td>
+            </tr>
+            <tr>
+              <td>数码家电</td>
+              <td class="td-mono">35 档</td>
+              <td class="td-mono">37 档</td>
+              <td><span class="change-arrow down"><i data-lucide="trending-down" style="width:12px;height:12px;"></i> -2</span></td>
+            </tr>
+            <tr>
+              <td>美妆护肤</td>
+              <td class="td-mono">56 档</td>
+              <td class="td-mono">48 档</td>
+              <td><span class="change-arrow up"><i data-lucide="trending-up" style="width:12px;height:12px;"></i> +8</span></td>
+            </tr>
+            <tr>
+              <td>服饰鞋包</td>
+              <td class="td-mono">28 档</td>
+              <td class="td-mono">31 档</td>
+              <td><span class="change-arrow down"><i data-lucide="trending-down" style="width:12px;height:12px;"></i> -3</span></td>
+            </tr>
+            <tr>
+              <td>食品生鲜</td>
+              <td class="td-mono">63 档</td>
+              <td class="td-mono">58 档</td>
+              <td><span class="change-arrow up"><i data-lucide="trending-up" style="width:12px;height:12px;"></i> +5</span></td>
+            </tr>
+            <tr>
+              <td>家居生活</td>
+              <td class="td-mono">19 档</td>
+              <td class="td-mono">22 档</td>
+              <td><span class="change-arrow down"><i data-lucide="trending-down" style="width:12px;height:12px;"></i> -3</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer reveal">
+      <p class="footer-text">ORIENTAL SHOPPING &middot; ON-AIR PROFIT DASHBOARD &middot; DATA REFRESHED EVERY 60s</p>
+    </footer>
+
+  </div>
+
+  <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+
+    // Live time update
+    function updateTime() {
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      const timeStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} CST`;
+      document.getElementById('liveTime').textContent = timeStr;
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
+
+    // Draw trend line SVG
+    function drawTrendLine() {
+      const container = document.getElementById('chartContainer');
+      const svg = document.getElementById('trendSvg');
+      const line = document.getElementById('trendLine');
+      const points = container.querySelectorAll('.trend-point');
+
+      if (points.length === 0) return;
+
+      const rect = container.getBoundingClientRect();
+      svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
+
+      let d = '';
+      points.forEach((p, i) => {
+        const pRect = p.getBoundingClientRect();
+        const x = pRect.left + pRect.width / 2 - rect.left;
+        const y = pRect.top + pRect.height - rect.top - 10;
+        d += (i === 0 ? 'M' : 'L') + `${x},${y}`;
+      });
+      line.setAttribute('d', d);
+    }
+
+    // Entrance animations
+    gsap.registerPlugin(ScrollTrigger);
+
+    // Reveal sections
+    gsap.to('.reveal', {
+      opacity: 1,
+      y: 0,
+      duration: 0.7,
+      stagger: 0.12,
+      ease: 'power3.out',
+      delay: 0.2
+    });
+
+    // Bar animations
+    gsap.to('.bar-animate', {
+      scaleY: 1,
+      duration: 0.8,
+      stagger: 0.06,
+      ease: 'power3.out',
+      delay: 0.6
+    });
+
+    // Trend badges fade in
+    gsap.from('.trend-point', {
+      opacity: 0,
+      y: -10,
+      duration: 0.5,
+      stagger: 0.1,
+      ease: 'power2.out',
+      delay: 1.2
+    });
+
+    // Table rows stagger
+    gsap.from('tbody tr', {
+      opacity: 0,
+      x: -12,
+      duration: 0.4,
+      stagger: 0.05,
+      ease: 'power2.out',
+      delay: 0.8
+    });
+
+    // Draw trend line after layout settles
+    window.addEventListener('load', () => {
+      setTimeout(drawTrendLine, 100);
+    });
+    window.addEventListener('resize', drawTrendLine);
+
+    // Filter select interaction feedback
+    document.querySelectorAll('.filter-select').forEach(select => {
+      select.addEventListener('change', function() {
+        gsap.fromTo(this, { scale: 0.98 }, { scale: 1, duration: 0.3, ease: 'back.out(2)' });
+      });
+    });
+
+    // Table row hover effect enhancement
+    document.querySelectorAll('tbody tr').forEach(row => {
+      row.addEventListener('mouseenter', function() {
+        gsap.to(this, { backgroundColor: 'rgba(59,130,246,0.05)', duration: 0.2 });
+      });
+      row.addEventListener('mouseleave', function() {
+        gsap.to(this, { backgroundColor: 'transparent', duration: 0.2 });
+      });
+    });
+  </script>
+</body>
+</html>
