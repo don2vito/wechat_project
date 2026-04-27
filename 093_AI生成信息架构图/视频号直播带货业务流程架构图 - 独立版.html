@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频号直播带货业务流程架构图</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+        
+        /* 标题区域 */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        /* 内容区域 */
+        .content {
+            padding: 30px;
+        }
+        
+        /* 摘要分析部分 */
+        .summary-section {
+            margin-bottom: 40px;
+        }
+        .section-title {
+            font-size: 20px;
+            color: #333;
+            border-left: 4px solid #667eea;
+            padding-left: 15px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        .summary-content {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 25px;
+            line-height: 1.8;
+            color: #555;
+        }
+        .summary-content h3 {
+            color: #444;
+            margin: 20px 0 12px 0;
+            font-size: 16px;
+        }
+        .summary-content h3:first-child {
+            margin-top: 0;
+        }
+        .summary-content p {
+            margin-bottom: 12px;
+            text-align: justify;
+        }
+        .summary-content ul {
+            margin-left: 20px;
+            margin-bottom: 12px;
+        }
+        .summary-content li {
+            margin-bottom: 6px;
+        }
+        .highlight-box {
+            background: #e8f4fc;
+            border-left: 3px solid #1890ff;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 6px 6px 0;
+        }
+        
+        /* 架构图部分 */
+        .diagram-section {
+            margin-top: 40px;
+        }
+        .diagram-container {
+            background: #fafbfc;
+            border-radius: 8px;
+            padding: 20px;
+            overflow-x: auto;
+        }
+        
+        /* 架构图样式 - 纯div实现 */
+        .arch-diagram {
+            min-width: 1100px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        /* 层级通用样式 */
+        .layer {
+            display: flex;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid rgba(0,0,0,0.08);
+        }
+        .layer-title {
+            width: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+            color: white;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            letter-spacing: 4px;
+        }
+        .layer-content {
+            flex: 1;
+            padding: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        
+        /* 模块组样式 */
+        .module-group {
+            background: rgba(255,255,255,0.85);
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .group-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #444;
+            padding-bottom: 6px;
+            border-bottom: 1px dashed #ccc;
+            margin-bottom: 4px;
+        }
+        .group-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        /* 模块样式 */
+        .module {
+            padding: 8px 14px;
+            border-radius: 4px;
+            font-size: 12px;
+            text-align: center;
+            min-width: 80px;
+            border: 1px solid;
+            transition: all 0.2s;
+        }
+        .module:hover {
+            transform: translateY(-2px);
+        }
+        
+        /* 各层级配色 */
+        /* 前端用户层 - 浅蓝色系 */
+        .layer-user {
+            background: linear-gradient(135deg, #e8f4fc 0%, #d1e9f8 100%);
+        }
+        .layer-user .layer-title {
+            background: #1890ff;
+        }
+        .layer-user .module {
+            background: #fff;
+            border-color: #91d5ff;
+            color: #096dd9;
+        }
+        
+        /* 直播间交互层 - 浅橙色系 */
+        .layer-interaction {
+            background: linear-gradient(135deg, #fff4e6 0%, #ffe7ba 100%);
+        }
+        .layer-interaction .layer-title {
+            background: #fa8c16;
+        }
+        .layer-interaction .module {
+            background: #fff;
+            border-color: #ffd591;
+            color: #d46b08;
+        }
+        
+        /* 商品展示层 - 浅黄色系 */
+        .layer-product {
+            background: linear-gradient(135deg, #feffe6 0%, #ffffb8 100%);
+        }
+        .layer-product .layer-title {
+            background: #d4b106;
+        }
+        .layer-product .module {
+            background: #fff;
+            border-color: #e6f7a3;
+            color: #8c8c00;
+        }
+        
+        /* 交易流程层 - 浅绿色系 */
+        .layer-transaction {
+            background: linear-gradient(135deg, #e8f8e8 0%, #d1f2d1 100%);
+        }
+        .layer-transaction .layer-title {
+            background: #52c41a;
+        }
+        .layer-transaction .module {
+            background: #fff;
+            border-color: #b7eb8f;
+            color: #389e0d;
+        }
+        
+        /* 售后跟踪层 - 浅青色系 */
+        .layer-aftersale {
+            background: linear-gradient(135deg, #e6fffb 0%, #b5f5ec 100%);
+        }
+        .layer-aftersale .layer-title {
+            background: #13c2c2;
+        }
+        .layer-aftersale .module {
+            background: #fff;
+            border-color: #87e8de;
+            color: #08979c;
+        }
+        
+        /* 后端服务层 - 浅紫色系 */
+        .layer-backend {
+            background: linear-gradient(135deg, #f0e8f8 0%, #e0d4f0 100%);
+        }
+        .layer-backend .layer-title {
+            background: #722ed1;
+        }
+        .layer-backend .module {
+            background: #fff;
+            border-color: #d3adf7;
+            color: #531dab;
+        }
+        
+        /* 数据中心层 - 浅粉色系 */
+        .layer-data {
+            background: linear-gradient(135deg, #fff0f6 0%, #ffd6e7 100%);
+        }
+        .layer-data .layer-title {
+            background: #eb2f96;
+        }
+        .layer-data .module {
+            background: #fff;
+            border-color: #ffadd2;
+            color: #c41d7f;
+        }
+        
+        /* 基础设施层 - 浅灰色系 */
+        .layer-infra {
+            background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+        }
+        .layer-infra .layer-title {
+            background: #595959;
+        }
+        .layer-infra .module {
+            background: #fff;
+            border-color: #bfbfbf;
+            color: #434343;
+        }
+        
+        /* 分隔线 */
+        .divider {
+            height: 2px;
+            background: repeating-linear-gradient(
+                90deg,
+                #ccc 0px,
+                #ccc 8px,
+                transparent 8px,
+                transparent 12px
+            );
+            margin: 4px 0;
+        }
+        
+        /* 图例 */
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 6px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #666;
+        }
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        /* 流程箭头说明 */
+        .flow-note {
+            text-align: center;
+            padding: 10px;
+            font-size: 12px;
+            color: #888;
+            font-style: italic;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 1200px) {
+            .arch-diagram {
+                min-width: 900px;
+            }
+        }
+        @media (max-width: 768px) {
+            .content {
+                padding: 15px;
+            }
+            .arch-diagram {
+                min-width: 700px;
+            }
+            .layer-title {
+                width: 36px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 标题 -->
+        <div class="header">
+            <h1>视频号直播带货业务流程架构图</h1>
+            <p>全链路业务闭环 · 前后端协同架构 · 企业级系统设计</p>
+        
+            
+            <!-- 架构图部分 -->
+            <div class="diagram-section">
+
+                <div class="diagram-container">
+                    <div class="arch-diagram">
+                        
+                        <!-- 前端用户层 -->
+                        <div class="layer layer-user">
+                            <div class="layer-title">流量入口</div>
+                            <div class="layer-content">
+                                <div class="module-group">
+                                    <div class="group-title">多渠道获客</div>
+                                    <div class="group-items">
+                                        <div class="module">视频号推荐</div>
+                                        <div class="module">直播广场</div>
+                                        <div class="module">朋友圈分享</div>
+                                        <div class="module">扫码进入</div>
+                                        <div class="module">搜索发现</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">用户画像</div>
+                                    <div class="group-items">
+                                        <div class="module">新用户</div>
+                                        <div class="module">活跃用户</div>
+                                        <div class="module">会员用户</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="divider"></div>
+                        
+                        <!-- 直播间交互层 -->
+                        <div class="layer layer-interaction">
+                            <div class="layer-title">直播互动</div>
+                            <div class="layer-content">
+                                <div class="module-group">
+                                    <div class="group-title">主播端</div>
+                                    <div class="group-items">
+                                        <div class="module">商品讲解</div>
+                                        <div class="module">实时演示</div>
+                                        <div class="module">优惠券发放</div>
+                                        <div class="module">限时秒杀</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">用户端</div>
+                                    <div class="group-items">
+                                        <div class="module">发送评论</div>
+                                        <div class="module">点赞互动</div>
+                                        <div class="module">赠送礼物</div>
+                                        <div class="module">分享直播间</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">实时数据</div>
+                                    <div class="group-items">
+                                        <div class="module">在线人数</div>
+                                        <div class="module">互动热度</div>
+                                        <div class="module">成交额</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="divider"></div>
+                        
+                        <!-- 商品展示层 -->
+                        <div class="layer layer-product">
+                            <div class="layer-title">商品展示</div>
+                            <div class="layer-content">
+                                <div class="module-group">
+                                    <div class="group-title">商品呈现</div>
+                                    <div class="group-items">
+                                        <div class="module">浮窗商品列表</div>
+                                        <div class="module">商品详情页</div>
+                                        <div class="module">规格选择</div>
+                                        <div class="module">库存显示</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">商品信息</div>
+                                    <div class="group-items">
+                                        <div class="module">商品图片</div>
+                                        <div class="module">价格信息</div>
+                                        <div class="module">用户评价</div>
+                                        <div class="module">销量统计</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="divider"></div>
+                        
+                        <!-- 交易流程层 -->
+                        <div class="layer layer-transaction">
+                            <div class="layer-title">交易流程</div>
+                            <div class="layer-content">
+                                <div class="module-group">
+                                    <div class="group-title">购物车</div>
+                                    <div class="group-items">
+                                        <div class="module">加入购物车</div>
+                                        <div class="module">数量调整</div>
+                                        <div class="module">商品勾选</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">优惠计算</div>
+                                    <div class="group-items">
+                                        <div class="module">优惠券匹配</div>
+                                        <div class="module">满减活动</div>
+                                        <div class="module">会员折扣</div>
+                                        <div class="module">金额计算</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">订单确认</div>
+                                    <div class="group-items">
+                                        <div class="module">商品核对</div>
+                                        <div class="module">地址选择</div>
+                                        <div class="module">运费计算</div>
+                                        <div class="module">订单提交</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">支付环节</div>
+                                    <div class="group-items">
+                                        <div class="module">微信支付</div>
+                                        <div class="module">支付结果</div>
+                                        <div class="module">订单创建</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="divider"></div>
+                        
+                        <!-- 售后跟踪层 -->
+                        <div class="layer layer-aftersale">
+                            <div class="layer-title">售后跟踪</div>
+                            <div class="layer-content">
+                                <div class="module-group">
+                                    <div class="group-title">物流跟踪</div>
+                                    <div class="group-items">
+                                        <div class="module">物流轨迹</div>
+                                        <div class="module">配送状态</div>
+                                        <div class="module">签收确认</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">售后服务</div>
+                                    <div class="group-items">
+                                        <div class="module">退款申请</div>
+                                        <div class="module">退货申请</div>
+                                        <div class="module">凭证上传</div>
+                                        <div class="module">进度查询</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">客服咨询</div>
+                                    <div class="group-items">
+                                        <div class="module">售前咨询</div>
+                                        <div class="module">售后问题</div>
+                                        <div class="module">投诉建议</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flow-note">▼ 前端用户行为流完成，数据流转至后端系统 ▼</div>
+                        
+                        <!-- 后端服务层 - 订单管理 -->
+                        <div class="layer layer-backend">
+                            <div class="layer-title">订单管理</div>
+                            <div class="layer-content">
+                                <div class="module-group">
+                                    <div class="group-title">订单处理</div>
+                                    <div class="group-items">
+                                        <div class="module">新订单接收</div>
+                                        <div class="module">库存确认</div>
+                                        <div class="module">价格校验</div>
+                                        <div class="module">风控审核</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">订单状态</div>
+                                    <div class="group-items">
+                                        <div class="module">待付款</div>
+                                        <div class="module">已付款</div>
+                                        <div class="module">已发货</div>
+                                        <div class="module">已完成</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">发货单</div>
+                                    <div class="group-items">
+                                        <div class="module">生成发货单</div>
+                                        <div class="module">推送仓库</div>
+                                        <div class="module">状态同步</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="divider"></div>
+                        
+                        <!-- 后端服务层 - 发货履约 -->
+                        <div class="layer layer-backend">
+                            <div class="layer-title">发货履约</div>
+                            <div class="layer-content">
+                                <div class="module-group">
+                                    <div class="group-title">仓库作业</div>
+                                    <div class="group-items">
+                                        <div class="module">拣货</div>
+                                        <div class="module">打包</div>
+                                        <div class="module">出库</div>
+                                        <div class="module">质检</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">物流配送</div>
+                                    <div class="group-items">
+                                        <div class="module">物流单号同步</div>
+                                        <div class="module">轨迹追踪</div>
+                                        <div class="module">配送通知</div>
+                                        <div class="module">签收确认</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">状态更新</div>
+                                    <div class="group-items">
+                                        <div class="module">发货通知</div>
+                                        <div class="module">物流更新</div>
+                                        <div class="module">自动签收</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="divider"></div>
+                        
+                        <!-- 后端服务层 - 售后处理 -->
+                        <div class="layer layer-backend">
+                            <div class="layer-title">售后处理</div>
+                            <div class="layer-content">
+                                <div class="module-group">
+                                    <div class="group-title">申请审核</div>
+                                    <div class="group-items">
+                                        <div class="module">退款审核</div>
+                                        <div class="module">退货审核</div>
+                                        <div class="module">凭证核实</div>
+                                        <div class="module">责任判定</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">退款处理</div>
+                                    <div class="group-items">
+                                        <div class="module">原路退回</div>
+                                        <div class="module">到账通知</div>
+                                        <div class="module">财务记账</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">换货处理</div>
+                                    <div class="group-items">
+                                        <div class="module">换货审核</div>
+                                        <div class="module">重新发货</div>
+                                        <div class="module">旧件回收</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="divider"></div>
+                        
+                        <!-- 后端服务层 - 营销工具 -->
+                        <div class="layer layer-backend">
+                            <div class="layer-title">营销工具</div>
+                            <div class="layer-content">
+                                <div class="module-group">
+                                    <div class="group-title">活动配置</div>
+                                    <div class="group-items">
+                                        <div class="module">秒杀活动</div>
+                                        <div class="module">优惠券</div>
+                                        <div class="module">拼团购</div>
+                                        <div class="module">满减活动</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">规则引擎</div>
+                                    <div class="group-items">
+                                        <div class="module">活动规则</div>
+                                        <div class="module">参与条件</div>
+                                        <div class="module">库存分配</div>
+                                        <div class="module">时间控制</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">效果统计</div>
+                                    <div class="group-items">
+                                        <div class="module">参与人数</div>
+                                        <div class="module">成交额</div>
+                                        <div class="module">ROI分析</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="divider"></div>
+                        
+                        <!-- 数据中心层 -->
+                        <div class="layer layer-data">
+                            <div class="layer-title">数据中心</div>
+                            <div class="layer-content">
+                                <div class="module-group">
+                                    <div class="group-title">直播数据</div>
+                                    <div class="group-items">
+                                        <div class="module">观看人数</div>
+                                        <div class="module">在线峰值</div>
+                                        <div class="module">平均观看时长</div>
+                                        <div class="module">互动率</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">交易数据</div>
+                                    <div class="group-items">
+                                        <div class="module">成交额</div>
+                                        <div class="module">订单量</div>
+                                        <div class="module">转化率</div>
+                                        <div class="module">客单价</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">用户数据</div>
+                                    <div class="group-items">
+                                        <div class="module">新增用户</div>
+                                        <div class="module">复购率</div>
+                                        <div class="module">用户画像</div>
+                                        <div class="module">留存分析</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">商品数据</div>
+                                    <div class="group-items">
+                                        <div class="module">热销排行</div>
+                                        <div class="module">库存周转</div>
+                                        <div class="module">动销率</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="divider"></div>
+                        
+                        <!-- 后端服务层 - 商家管理 -->
+                        <div class="layer layer-backend">
+                            <div class="layer-title">商家管理</div>
+                            <div class="layer-content">
+                                <div class="module-group">
+                                    <div class="group-title">商品管理</div>
+                                    <div class="group-items">
+                                        <div class="module">商品上架</div>
+                                        <div class="module">商品编辑</div>
+                                        <div class="module">批量操作</div>
+                                        <div class="module">类目管理</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">库存控制</div>
+                                    <div class="group-items">
+                                        <div class="module">库存查询</div>
+                                        <div class="module">库存预警</div>
+                                        <div class="module">补货提醒</div>
+                                        <div class="module">库存调整</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">财务对账</div>
+                                    <div class="group-items">
+                                        <div class="module">订单对账</div>
+                                        <div class="module">退款对账</div>
+                                        <div class="module">佣金结算</div>
+                                        <div class="module">资金流水</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="divider"></div>
+                        
+                        <!-- 基础设施层 -->
+                        <div class="layer layer-infra">
+                            <div class="layer-title">供应链协同</div>
+                            <div class="layer-content">
+                                <div class="module-group">
+                                    <div class="group-title">ERP对接</div>
+                                    <div class="group-items">
+                                        <div class="module">库存同步</div>
+                                        <div class="module">订单推送</div>
+                                        <div class="module">发货回传</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">采购管理</div>
+                                    <div class="group-items">
+                                        <div class="module">需求预测</div>
+                                        <div class="module">采购计划</div>
+                                        <div class="module">供应商协同</div>
+                                    </div>
+                                </div>
+                                <div class="module-group">
+                                    <div class="group-title">基础设施</div>
+                                    <div class="group-items">
+                                        <div class="module">API网关</div>
+                                        <div class="module">消息队列</div>
+                                        <div class="module">缓存服务</div>
+                                        <div class="module">数据库</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    
+                    <!-- 图例 -->
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: #e8f4fc; border-color: #91d5ff;"></div>
+                            <span>流量入口</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: #fff4e6; border-color: #ffd591;"></div>
+                            <span>直播互动</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: #feffe6; border-color: #e6f7a3;"></div>
+                            <span>商品展示</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: #e8f8e8; border-color: #b7eb8f;"></div>
+                            <span>交易流程</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: #e6fffb; border-color: #87e8de;"></div>
+                            <span>售后跟踪</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: #f0e8f8; border-color: #d3adf7;"></div>
+                            <span>后端服务</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: #fff0f6; border-color: #ffadd2;"></div>
+                            <span>数据中心</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: #f5f5f5; border-color: #bfbfbf;"></div>
+                            <span>基础设施</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 页脚 -->
+        <div style="text-align: center; padding: 20px; color: #999; font-size: 12px; border-top: 1px solid #eee;">
+            视频号直播带货业务流程架构图 · 企业级系统架构设计
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>动态化数据图表生成器 V2.0</title>
+    <!-- 引入 ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <!-- 引入 SheetJS 用于解析 Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding-top: 40px;
+            padding-bottom: 40px;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            width: 900px;
+            box-sizing: border-box;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        input[type="file"] {
+            border: 2px dashed #ddd;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        input[type="file"]:hover {
+            border-color: #4CAF50;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        #download-btn {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            margin-left: auto;
+        }
+
+        #download-btn:hover {
+            box-shadow: 0 6px 20px rgba(17, 153, 142, 0.4);
+        }
+
+        #data-preview {
+            display: none;
+            margin-bottom: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            width: 900px;
+            box-sizing: border-box;
+        }
+
+        #data-preview h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 16px;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        #preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        #preview-table th,
+        #preview-table td {
+            border: 1px solid #e0e0e0;
+            padding: 10px 12px;
+        }
+
+        #preview-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+        }
+
+        #preview-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        #preview-table tr:hover {
+            background-color: #e3f2fd;
+        }
+
+        #main {
+            width: 900px;
+            height: 600px;
+            background-color: #ffffff;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        /* 颜色配置面板样式 */
+        #color-config-panel {
+            display: none;
+            margin-bottom: 20px;
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            width: 900px;
+            box-sizing: border-box;
+        }
+
+        #color-config-panel h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 16px;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .color-picker-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .color-picker-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .color-picker-item label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #555;
+            min-width: 80px;
+        }
+
+        .color-picker-item input[type="color"] {
+            width: 50px;
+            height: 35px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .color-value {
+            font-size: 12px;
+            color: #666;
+            font-family: monospace;
+            background: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .toggle-color-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            font-size: 13px;
+            padding: 8px 16px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="controls">
+        <div class="control-group">
+            <label for="excel-file"><strong>📊 选择Excel:</strong></label>
+            <input type="file" id="excel-file" accept=".xlsx, .xls">
+        </div>
+        
+        <div class="control-group">
+            <label for="theme-select"><strong>🎨 配色风格:</strong></label>
+            <select id="theme-select" style="padding: 8px; border-radius: 6px; border: 1px solid #ddd; font-size: 14px;">
+                <option value="business">红灰商务风格 (默认)</option>
+                <option value="mckinsey_blue">麦肯锡经典蓝 (单色)</option>
+                <option value="custom">自定义配色</option>
+            </select>
+        </div>
+
+        <button id="toggle-color-btn" class="toggle-color-btn" style="display: none;">⚙️ 配置颜色</button>
+        <button id="download-btn"><strong>📷 下载高清图片 (300PPI)</strong></button>
+    </div>
+
+    <div id="color-config-panel">
+        <h3>🎨 系列颜色自定义配置</h3>
+        <div id="color-pickers-container" class="color-picker-container">
+            <!-- 动态生成的颜色选择器将放在这里 -->
+        </div>
+    </div>
+
+    <div id="data-preview">
+        <h3>📄 数据预览 (前 5 行)</h3>
+        <table id="preview-table">
+            <thead id="preview-thead"></thead>
+            <tbody id="preview-tbody"></tbody>
+        </table>
+    </div>
+
+    <div id="main"></div>
+
+    <script>
+        var chartDom = document.getElementById('main');
+        var myChart = echarts.init(chartDom);
+        var currentJsonData = null;
+        var currentCategories = [];
+        var customColors = {}; // 存储自定义颜色
+
+        // 预设主题色彩搭配
+        const colorThemes = {
+            business: ['#c32026', '#f08994', '#f6b8c4', '#ffb74d', '#4db6ac', '#4fc3f7', '#ba68c8'],
+            mckinsey_blue: ['#003b5c', '#1f70a9', '#5494c5', '#8eb6db', '#a3c6df', '#cddbed']
+        };
+
+        // 300PPI 高清下载功能
+        document.getElementById('download-btn').addEventListener('click', function () {
+            if (!currentJsonData) {
+                alert('请先上传数据！');
+                return;
+            }
+
+            // 显示加载状态
+            const btn = this;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<strong>⏳ 生成中...</strong>';
+            btn.disabled = true;
+
+            setTimeout(() => {
+                // 300PPI 设置：目标尺寸 900px 在 300PPI 下需要更大的像素尺寸
+                // 300PPI = 300 像素/英寸，假设输出 3 英寸宽 = 900 像素
+                // 为了获得 300PPI 质量，我们需要 3.125 倍的像素密度 (300/96 ≈ 3.125)
+                const scaleFactor = 3.125; // 300PPI / 96PPI (标准屏幕密度)
+                
+                const originalWidth = 900;
+                const originalHeight = 600;
+                const highResWidth = originalWidth * scaleFactor;
+                const highResHeight = originalHeight * scaleFactor;
+
+                // 创建临时高分辨率图表
+                const tempContainer = document.createElement('div');
+                tempContainer.style.width = highResWidth + 'px';
+                tempContainer.style.height = highResHeight + 'px';
+                tempContainer.style.position = 'absolute';
+                tempContainer.style.left = '-9999px';
+                tempContainer.style.top = '-9999px';
+                document.body.appendChild(tempContainer);
+
+                const tempChart = echarts.init(tempContainer, null, {
+                    renderer: 'canvas',
+                    width: highResWidth,
+                    height: highResHeight
+                });
+
+                // 获取当前配置并调整字体大小
+                const currentOption = myChart.getOption();
+                const highResOption = JSON.parse(JSON.stringify(currentOption));
+                
+                // 调整所有字体大小以适应高分辨率
+                function scaleFontSize(obj) {
+                    for (let key in obj) {
+                        if (typeof obj[key] === 'object' && obj[key] !== null) {
+                            scaleFontSize(obj[key]);
+                        }
+                        if (key === 'fontSize' && typeof obj[key] === 'number') {
+                            obj[key] = obj[key] * scaleFactor;
+                        }
+                    }
+                }
+                scaleFontSize(highResOption);
+
+                // 调整网格和其他尺寸
+                if (highResOption.grid && highResOption.grid[0]) {
+                    highResOption.grid[0].left = (parseFloat(highResOption.grid[0].left) || 5) + '%';
+                    highResOption.grid[0].right = (parseFloat(highResOption.grid[0].right) || 5) + '%';
+                }
+
+                tempChart.setOption(highResOption);
+
+                // 等待渲染完成
+                setTimeout(() => {
+                    const url = tempChart.getDataURL({
+                        type: 'jpeg',
+                        pixelRatio: 1, // 已经通过画布尺寸放大了
+                        backgroundColor: '#fff'
+                    });
+
+                    // 创建下载链接
+                    const a = document.createElement('a');
+                    a.download = '商业图表_300PPI_V2.0.jpg';
+                    a.target = '_blank';
+                    a.href = url;
+                    
+                    // 触发下载
+                    const event = new MouseEvent('click', {
+                        bubbles: true,
+                        cancelable: true,
+                        view: window
+                    });
+                    a.dispatchEvent(event);
+
+                    // 清理
+                    tempChart.dispose();
+                    document.body.removeChild(tempContainer);
+                    
+                    // 恢复按钮状态
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 500);
+            }, 100);
+        });
+
+        // 渲染表格预览
+        function renderTablePreview(dataArray) {
+            const previewDiv = document.getElementById('data-preview');
+            const thead = document.getElementById('preview-thead');
+            const tbody = document.getElementById('preview-tbody');
+
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+
+            if (dataArray.length === 0) return;
+
+            const headers = dataArray[0] || [];
+            let theadHtml = '<tr>';
+            headers.forEach(h => {
+                theadHtml += `<th>${h || ''}</th>`;
+            });
+            theadHtml += '</tr>';
+            thead.innerHTML = theadHtml;
+
+            const rows = dataArray.slice(1, 6);
+            let tbodyHtml = '';
+            rows.forEach(row => {
+                tbodyHtml += '<tr>';
+                headers.forEach((_, index) => {
+                    const cellData = row[index] !== undefined && row[index] !== null ? row[index] : '';
+                    tbodyHtml += `<td>${cellData}</td>`;
+                });
+                tbodyHtml += '</tr>';
+            });
+            tbody.innerHTML = tbodyHtml;
+            previewDiv.style.display = 'block';
+        }
+
+        // 生成颜色配置面板
+        function generateColorPickers(categories) {
+            const container = document.getElementById('color-pickers-container');
+            const panel = document.getElementById('color-config-panel');
+            container.innerHTML = '';
+
+            // 获取当前主题颜色作为默认值
+            const currentTheme = document.getElementById('theme-select').value;
+            let defaultColors;
+            if (currentTheme === 'custom' && Object.keys(customColors).length > 0) {
+                defaultColors = categories.map((_, i) => customColors[i] || colorThemes.business[i % colorThemes.business.length]);
+            } else {
+                defaultColors = categories.map((_, i) => {
+                    const themeColors = colorThemes[currentTheme] || colorThemes.business;
+                    return themeColors[i % themeColors.length];
+                });
+            }
+
+            categories.forEach((cat, index) => {
+                const item = document.createElement('div');
+                item.className = 'color-picker-item';
+                
+                const label = document.createElement('label');
+                label.textContent = cat;
+                
+                const colorInput = document.createElement('input');
+                colorInput.type = 'color';
+                colorInput.value = defaultColors[index];
+                colorInput.dataset.index = index;
+                
+                const colorValue = document.createElement('span');
+                colorValue.className = 'color-value';
+                colorValue.textContent = defaultColors[index];
+                
+                colorInput.addEventListener('input', function() {
+                    colorValue.textContent = this.value;
+                    customColors[index] = this.value;
+                    if (currentJsonData) {
+                        renderChartFromExcel(currentJsonData);
+                    }
+                });
+                
+                item.appendChild(label);
+                item.appendChild(colorInput);
+                item.appendChild(colorValue);
+                container.appendChild(item);
+            });
+
+            // 保存初始自定义颜色
+            categories.forEach((_, i) => {
+                if (!customColors[i]) {
+                    customColors[i] = defaultColors[i];
+                }
+            });
+        }
+
+        // 切换颜色配置面板显示
+        document.getElementById('toggle-color-btn').addEventListener('click', function() {
+            const panel = document.getElementById('color-config-panel');
+            if (panel.style.display === 'none' || panel.style.display === '') {
+                panel.style.display = 'block';
+                this.textContent = '⚙️ 隐藏配置';
+            } else {
+                panel.style.display = 'none';
+                this.textContent = '⚙️ 配置颜色';
+            }
+        });
+
+        // 监听主题切换
+        document.getElementById('theme-select').addEventListener('change', function() {
+            const toggleBtn = document.getElementById('toggle-color-btn');
+            const panel = document.getElementById('color-config-panel');
+            
+            if (this.value === 'custom') {
+                toggleBtn.style.display = 'inline-block';
+                if (currentCategories.length > 0) {
+                    generateColorPickers(currentCategories);
+                }
+            } else {
+                toggleBtn.style.display = 'none';
+                panel.style.display = 'none';
+                // 清空自定义颜色，使用主题颜色
+                customColors = {};
+            }
+            
+            if (currentJsonData) {
+                renderChartFromExcel(currentJsonData);
+            }
+        });
+
+        // Excel 文件上传处理
+        document.getElementById('excel-file').addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var data = new Uint8Array(e.target.result);
+                var workbook = XLSX.read(data, { type: 'array' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+                var json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                json = json.filter(row => row.length > 0 && row.some(cell => cell !== undefined && cell !== null && cell !== ''));
+
+                if (json.length > 1) {
+                    currentJsonData = json;
+                    
+                    // 提取类别名称
+                    const headers = json[0];
+                    currentCategories = headers.slice(1);
+                    
+                    // 如果是自定义模式，生成颜色选择器
+                    if (document.getElementById('theme-select').value === 'custom') {
+                        generateColorPickers(currentCategories);
+                        document.getElementById('toggle-color-btn').style.display = 'inline-block';
+                    }
+                    
+                    renderTablePreview(json);
+                    renderChartFromExcel(json);
+                } else {
+                    alert("提示: Excel 内容为空或格式不正确。请确保第一行为表头，往下为数据。");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        function renderChartFromExcel(dataArray) {
+            // 获取当前所选的配色方案
+            const currentTheme = document.getElementById('theme-select').value;
+            let activeColors;
+            
+            if (currentTheme === 'custom') {
+                activeColors = currentCategories.map((_, i) => customColors[i] || colorThemes.business[i % colorThemes.business.length]);
+            } else {
+                activeColors = colorThemes[currentTheme] || colorThemes.business;
+            }
+
+            const cleanDataArray = dataArray.filter(row => row.length > 0 && row[0] != null);
+
+            const headers = cleanDataArray[0];
+            const categories = headers.slice(1);
+
+            const rows = cleanDataArray.slice(1);
+            const years = rows.map(row => row[0]);
+
+            const seriesData = categories.map((cat, index) => {
+                return {
+                    name: cat,
+                    data: rows.map(row => Number(row[index + 1]) || 0)
+                };
+            });
+
+            const totals = rows.map(row => {
+                let sum = 0;
+                for (let i = 1; i < row.length; i++) {
+                    sum += (Number(row[i]) || 0);
+                }
+                return sum;
+            });
+
+            const seriesConfig = seriesData.map((sd, index) => ({
+                name: sd.name,
+                type: 'bar',
+                stack: 'total',
+                barWidth: 60,
+                itemStyle: { 
+                    color: activeColors[index % activeColors.length] 
+                }, 
+                label: {
+                    show: true,
+                    position: 'inside',
+                    formatter: '{c}',
+                    color: index === 0 ? '#fff' : '#444',
+                    fontSize: 11,
+                    fontWeight: 'bold'
+                },
+                data: sd.data
+            }));
+
+            // 显示顶部数字（总和）
+            seriesConfig.push({
+                name: '总计辅助柱',
+                type: 'bar',
+                stack: 'total',
+                itemStyle: { color: 'transparent' },
+                label: {
+                    show: true,
+                    position: 'top',
+                    formatter: function (params) {
+                        return totals[params.dataIndex];
+                    },
+                    color: '#333',
+                    fontSize: 16,
+                    fontWeight: 'bold'
+                },
+                data: Array(totals.length).fill(0)
+            });
+
+            const option = {
+                legend: {
+                    data: categories,
+                    icon: 'square',
+                    top: 15,
+                    textStyle: { color: '#666', fontSize: 13 }
+                },
+                grid: {
+                    left: '5%', right: '5%', bottom: '10%', top: '15%', containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: years,
+                    axisLine: { lineStyle: { color: '#ccc' } },
+                    axisTick: { show: false },
+                    axisLabel: { color: '#666', fontSize: 13, margin: 15 }
+                },
+                yAxis: {
+                    type: 'value',
+                    show: false,
+                    max: Math.max(...totals) * 1.35
+                },
+                series: seriesConfig,
+                graphic: { elements: [] }
+            };
+
+            myChart.setOption({ graphic: { elements: [] } });
+            myChart.setOption(option, true);
+
+            setTimeout(() => drawArrows(years, totals), 150);
+        }
+
+        function drawArrows(years, totals) {
+            const graphicElements = [];
+            const gapOffset = 35; // 起点和终点的间隔偏移量（像素）
+
+            for (let i = 1; i < years.length; i++) {
+                const prevTotal = totals[i - 1];
+                const currTotal = totals[i];
+
+                if (prevTotal === 0) continue;
+
+                const diff = currTotal - prevTotal;
+                const isNegative = diff < 0;
+                const growthRateStr = (diff >= 0 ? '+' : '') + Math.round((diff) / prevTotal * 100) + '%';
+
+                // 获取原始坐标点
+                const p1Raw = myChart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [i - 1, prevTotal]);
+                const p2Raw = myChart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [i, currTotal]);
+
+                if (!p1Raw || !p2Raw) continue;
+
+                // 添加间隔：起点向右偏移，终点向左偏移
+                const p1 = [p1Raw[0] + gapOffset, p1Raw[1]];
+                const p2 = [p2Raw[0] - gapOffset, p2Raw[1]];
+
+                const badgeColor = isNegative ? '#C00000' : '#37475a';
+                const lineColor = isNegative ? '#C00000' : '#555';
+
+                const staggerOffset = (i % 2 === 0) ? 30 : 0;
+                const lineTopY = Math.min(p1[1], p2[1]) - 60 - staggerOffset;
+
+                // 1. 发射连线折线体（带间隔的版本）
+                graphicElements.push({
+                    type: 'polyline',
+                    z: 100,
+                    shape: {
+                        points: [
+                            [p1[0], p1[1] - 25], // 起点（带间隔）
+                            [p1[0], lineTopY],   // 上升到顶部
+                            [p2[0], lineTopY],   // 水平移动
+                            [p2[0], p2[1] - 35]  // 下降到终点（带间隔）
+                        ]
+                    },
+                    style: { stroke: lineColor, lineWidth: 1 }
+                });
+
+                // 2. 目标箭头（在间隔点）
+                graphicElements.push({
+                    type: 'polygon',
+                    z: 100,
+                    shape: {
+                        points: [
+                            [p2[0], p2[1] - 25],        // 箭头尖端（带间隔）
+                            [p2[0] - 4, p2[1] - 33],    // 箭头左翼
+                            [p2[0] + 4, p2[1] - 33]     // 箭头右翼
+                        ]
+                    },
+                    style: { fill: lineColor }
+                });
+
+                // 3. 计算文本绘制中央点位
+                const textCenterX = (p1[0] + p2[0]) / 2;
+                const textCenterY = lineTopY;
+
+                // 动态变色的背景圆盘
+                graphicElements.push({
+                    type: 'circle',
+                    z: 100,
+                    shape: { cx: textCenterX, cy: textCenterY, r: 18 },
+                    style: { fill: badgeColor } 
+                });
+
+                // 中部的百分比文本
+                const textLength = growthRateStr.length;
+
+                graphicElements.push({
+                    type: 'text',
+                    z: 100,
+                    style: {
+                        text: growthRateStr,
+                        x: textCenterX - (textLength * 3.5),
+                        y: textCenterY - 5,
+                        fill: '#fff',
+                        fontSize: 11,
+                        fontWeight: 'bold'
+                    }
+                });
+            }
+
+            myChart.setOption({ graphic: { elements: graphicElements } }, false);
+        }
+
+        // ================= 初始化演示 =================
+        const initMockData = [
+            ['年度', '东南亚', '北欧', '美国'],
+            ['2024', 48, 78, 80],
+            ['2025', 56, 120, 157],
+            ['2026', 61, 202, 260],
+            ['2027', 40, 90, 120]
+        ];
+        
+        currentJsonData = initMockData;
+        currentCategories = initMockData[0].slice(1);
+        
+        // 初始化自定义颜色
+        currentCategories.forEach((_, i) => {
+            customColors[i] = colorThemes.business[i % colorThemes.business.length];
+        });
+        
+        renderTablePreview(initMockData);
+        renderChartFromExcel(initMockData);
+
+        let resizeTimer;
+        window.addEventListener('resize', function () {
+            clearTimeout(resizeTimer);
+            myChart.resize();
+            resizeTimer = setTimeout(() => {
+                if (currentJsonData) {
+                    renderChartFromExcel(currentJsonData);
+                }
+            }, 300);
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>动态化数据图表生成器</title>
+    <!-- 引入 ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <!-- 引入 SheetJS 用于解析 Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: #f7f9fa;
+            font-family: sans-serif;
+            padding-top: 40px;
+            padding-bottom: 40px;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            background: white;
+            padding: 15px 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            width: 900px;
+            box-sizing: border-box;
+        }
+
+        input[type="file"] {
+            border: 1px solid #ddd;
+            padding: 8px;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #download-btn {
+            background-color: #3b82f6;
+            /* Blue for download */
+            margin-left: auto;
+        }
+
+        #download-btn:hover {
+            background-color: #2563eb;
+        }
+
+        #data-preview {
+            display: none;
+            margin-bottom: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 900px;
+            box-sizing: border-box;
+        }
+
+        #data-preview h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 16px;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        #preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        #preview-table th,
+        #preview-table td {
+            border: 1px solid #ddd;
+            padding: 8px 10px;
+        }
+
+        #preview-table th {
+            background-color: #f8fafc;
+            color: #475569;
+            font-weight: bold;
+        }
+
+        #preview-table tr:nth-child(even) {
+            background-color: #fdfdfd;
+        }
+
+        #main {
+            width: 900px;
+            height: 600px;
+            background-color: #ffffff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            padding: 20px;
+            position: relative;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="controls">
+        <label for="excel-file"><strong>1.</strong> 选择Excel数据文件:</label>
+        <input type="file" id="excel-file" accept=".xlsx, .xls">
+
+        <label for="theme-select" style="margin-left: 10px;"><strong>配色风格:</strong></label>
+        <select id="theme-select" style="padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+            <option value="business">商务风格 (默认)</option>
+            <option value="colorful">彩色版本</option>
+            <option value="monochrome">单色版本</option>
+        </select>
+
+        <button id="download-btn"><strong>图片下载 (.jpg)</strong></button>
+    </div>
+
+    <div id="data-preview">
+        <h3>📄 数据预览 (前 5 行)</h3>
+        <table id="preview-table">
+            <thead id="preview-thead"></thead>
+            <tbody id="preview-tbody"></tbody>
+        </table>
+    </div>
+
+    <div id="main"></div>
+
+    <script>
+        var chartDom = document.getElementById('main');
+        var myChart = echarts.init(chartDom);
+        var currentJsonData = null; // 保存当前数据用于重绘
+
+        // 挂载下载事件，生成纯净的JPG格式图像
+        document.getElementById('download-btn').addEventListener('click', function () {
+            var url = myChart.getConnectedDataURL({
+                type: 'jpg',
+                backgroundColor: '#fff',
+                pixelRatio: 2 // 导出两倍图像提高清晰度
+            });
+            var a = document.createElement('a');
+            a.download = '商业图表.jpg';
+            a.target = '_blank';
+            a.href = url;
+            var event = new MouseEvent('click');
+            a.dispatchEvent(event);
+        });
+
+        // 渲染表格预览
+        function renderTablePreview(dataArray) {
+            const previewDiv = document.getElementById('data-preview');
+            const thead = document.getElementById('preview-thead');
+            const tbody = document.getElementById('preview-tbody');
+
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+
+            if (dataArray.length === 0) return;
+
+            // 获取表头
+            const headers = dataArray[0] || [];
+            let theadHtml = '<tr>';
+            headers.forEach(h => {
+                theadHtml += `<th>${h || ''}</th>`;
+            });
+            theadHtml += '</tr>';
+            thead.innerHTML = theadHtml;
+
+            // 取最多前 5 行真正的数据 (即从索引1开始到5)
+            const rows = dataArray.slice(1, 6);
+            let tbodyHtml = '';
+            rows.forEach(row => {
+                tbodyHtml += '<tr>';
+                // 确保对齐表头的每一列
+                headers.forEach((_, index) => {
+                    const cellData = row[index] !== undefined && row[index] !== null ? row[index] : '';
+                    tbodyHtml += `<td>${cellData}</td>`;
+                });
+                tbodyHtml += '</tr>';
+            });
+            tbody.innerHTML = tbodyHtml;
+            previewDiv.style.display = 'block';
+        }
+
+        // 监听文件上传 (SheetJS)
+        document.getElementById('excel-file').addEventListener('change', function (e) {
+            var file = e.target.files[0];
+            if (!file) return;
+
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                var data = new Uint8Array(e.target.result);
+                // 解析 Excel
+                var workbook = XLSX.read(data, { type: 'array' });
+                // 取第一个工作表
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+                // 将表格导出为二维数组（忽略表头，完整保留数据矩阵结构）
+                var json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                // 去除所有全空的行，以防多余空白导致出错
+                json = json.filter(row => row.length > 0 && row.some(cell => cell !== undefined && cell !== null && cell !== ''));
+
+                if (json.length > 1) {
+                    currentJsonData = json;
+                    renderTablePreview(json);
+                    renderChartFromExcel(json);
+                } else {
+                    alert("提示: Excel 内容为空或格式不正确。请确保第一行为表头，往下为数据。");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        // 预设主题色彩搭配
+        const colorThemes = {
+            business: ['#c32026', '#f08994', '#f6b8c4', '#ffb74d', '#4db6ac', '#4fc3f7', '#ba68c8'], // 默认红灰商务
+            colorful: ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4'], // ECharts 官方经典彩色
+            monochrome: ['#1f2937', '#4b5563', '#6b7280', '#9ca3af', '#d1d5db', '#e5e7eb'] // 黑白灰阶单色深浅（从深到浅）
+        };
+
+        function renderChartFromExcel(dataArray) {
+            // 获取当前所选的配色方案
+            const currentTheme = document.getElementById('theme-select').value;
+            const activeColors = colorThemes[currentTheme];
+
+            // 清理空数据：剔除全为空的行
+            const cleanDataArray = dataArray.filter(row => row.length > 0 && row[0] != null);
+
+            // 第一行作为表头（比如 ["年度", "东南亚", "北欧", "美国"]）
+            const headers = cleanDataArray[0];
+            const categories = headers.slice(1); // 取 ["东南亚", "北欧", "美国"]
+
+            // 下面的作为数据行
+            const rows = cleanDataArray.slice(1);
+            const years = rows.map(row => row[0]); // 各个年份（可以是任意字符/日期）
+
+            // 组装 categories 对接的 series 数据
+            const seriesData = categories.map((cat, index) => {
+                return {
+                    name: cat,
+                    data: rows.map(row => Number(row[index + 1]) || 0)
+                };
+            });
+
+            // 计算该“行”的总和（年度汇总）
+            const totals = rows.map(row => {
+                let sum = 0;
+                for (let i = 1; i < row.length; i++) {
+                    sum += (Number(row[i]) || 0);
+                }
+                return sum;
+            });
+
+            const seriesConfig = seriesData.map((sd, index) => ({
+                name: sd.name,
+                type: 'bar',
+                stack: 'total', // 将所有堆列在 "total" 分组下
+                barWidth: 60, // 稍微缩小柱子宽度，让页面更清爽
+                itemStyle: { color: activeColors[index % activeColors.length] }, // 【修改点】使用当前主题的颜色
+                label: {
+                    show: true,
+                    position: 'inside', // 中部显示数据
+                    formatter: '{c}', // 直接展示数值
+                    color: index === 0 ? '#fff' : '#444',
+                    fontSize: 11, // 【调整点】缩小字体，防止拥挤
+                    fontWeight: 'bold'
+                },
+                data: sd.data
+            }));
+
+            // 在最上层压入一个专门用来显示顶部数字（总和）的系列，但不带颜色
+            seriesConfig.push({
+                name: '总计辅助柱',
+                type: 'bar',
+                stack: 'total',
+                itemStyle: { color: 'transparent' }, // 不绘制实际实体
+                label: {
+                    show: true,
+                    position: 'top', // 在最顶端显示
+                    formatter: function (params) {
+                        return totals[params.dataIndex];
+                    },
+                    color: '#333',
+                    fontSize: 16,
+                    fontWeight: 'bold'
+                },
+                data: Array(totals.length).fill(0) // 值全为0，只借用stack高度
+            });
+
+            // 先预设Echarts的Option结构
+            const option = {
+                legend: {
+                    data: categories,
+                    icon: 'square',
+                    top: 15,
+                    textStyle: { color: '#666', fontSize: 13 }
+                },
+                grid: {
+                    left: '5%', right: '5%', bottom: '10%', top: '15%', containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: years,
+                    axisLine: { lineStyle: { color: '#ccc' } },
+                    axisTick: { show: false },
+                    axisLabel: { color: '#666', fontSize: 13, margin: 15 }
+                },
+                yAxis: {
+                    type: 'value',
+                    show: false, // 隐藏Y轴，使图表更纯粹干净
+                    max: Math.max(...totals) * 1.35 // 减少上部留空倍数，拉高柱子与箭头的整体视觉
+                },
+                series: seriesConfig,
+                graphic: { elements: [] } // 初始化清空图表图形
+            };
+
+            // 先清空旧的graphic元素防止重叠
+            myChart.setOption({ graphic: { elements: [] } });
+            myChart.setOption(option, true);
+
+            setTimeout(() => drawArrows(years, totals), 150);
+        }
+
+        // 提取画箭头逻辑以供复用
+        function drawArrows(years, totals) {
+            const graphicElements = [];
+            for (let i = 1; i < years.length; i++) {
+                const prevTotal = totals[i - 1];
+                const currTotal = totals[i];
+
+                // 防止除以0或者总数为空的情况导致图表崩溃
+                if (prevTotal === 0) continue;
+
+                // 计算差值及占比
+                const diff = currTotal - prevTotal;
+                const growthRateStr = (diff >= 0 ? '+' : '') + Math.round((diff) / prevTotal * 100) + '%';
+
+                const p1 = myChart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [i - 1, prevTotal]);
+                const p2 = myChart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [i, currTotal]);
+
+                if (!p1 || !p2) continue; // 安全判断
+
+                // 【调整点】如果数据年份较多，箭头很容易横向重叠(重置/压线)，这里我们加入一个“错位高度”机制：
+                // 奇数项高一点，偶数项低一点，或者按照一定梯级延伸从而防止相互碰撞。
+                const staggerOffset = (i % 2 === 0) ? 30 : 0;
+
+                // 取两柱中较高的一个值，再往上提高 60px+错位像素 用来画横线。
+                const lineTopY = Math.min(p1[1], p2[1]) - 60 - staggerOffset;
+
+                // 1. 发射连线折线体
+                graphicElements.push({
+                    type: 'polyline',
+                    z: 100, // z-index层叠控制高于数据层
+                    shape: {
+                        points: [
+                            [p1[0], p1[1] - 25], // P1点向上微调 (避免压线总额)
+                            [p1[0], lineTopY],  // P1点正上方
+                            [p2[0], lineTopY],  // P2点正上方
+                            [p2[0], p2[1] - 35]  // P2点向下拉至目的地
+                        ]
+                    },
+                    style: { stroke: '#555', lineWidth: 1 } // 画笔灰线条
+                });
+
+                // 2. 目标箭头
+                graphicElements.push({
+                    type: 'polygon',
+                    z: 100,
+                    shape: {
+                        points: [
+                            [p2[0], p2[1] - 25],        // 箭头尖端
+                            [p2[0] - 4, p2[1] - 33],    // 箭头左翼
+                            [p2[0] + 4, p2[1] - 33]     // 箭头右翼
+                        ]
+                    },
+                    style: { fill: '#555' }
+                });
+
+                // 3. 计算文本绘制中央点位 (在线段的正中间)
+                const textCenterX = (p1[0] + p2[0]) / 2;
+                const textCenterY = lineTopY;
+
+                // 带颜色的圆形背景板
+                graphicElements.push({
+                    type: 'circle',
+                    z: 100,
+                    shape: { cx: textCenterX, cy: textCenterY, r: 18 },
+                    style: { fill: '#37475a' }
+                });
+
+                // 中部的带百分比数据
+                const textLength = growthRateStr.length;
+
+                graphicElements.push({
+                    type: 'text',
+                    z: 100,
+                    style: {
+                        text: growthRateStr,
+                        x: textCenterX - (textLength * 3.5),
+                        y: textCenterY - 5,
+                        fill: '#fff',
+                        fontSize: 11,
+                        fontWeight: 'bold'
+                    }
+                });
+            }
+
+            myChart.setOption({ graphic: { elements: graphicElements } }, false);
+        }
+
+        // ================= 初始化演示 =================
+        const initMockData = [
+            ['年度', '东南亚', '北欧', '美国'], // 0行是Header
+            ['2024', 48, 78, 80],
+            ['2025', 56, 120, 157],
+            ['2026', 61, 202, 260]
+        ];
+        currentJsonData = initMockData;
+        renderTablePreview(initMockData);
+        renderChartFromExcel(initMockData);
+
+        // 监听主题切换，重新绘制
+        document.getElementById('theme-select').addEventListener('change', function () {
+            if (currentJsonData) {
+                renderChartFromExcel(currentJsonData);
+            }
+        });
+
+        // 每当改变浏览器窗口尺寸的时候自动重计算绘制比例，确保线段不会出现错乱。
+        let resizeTimer;
+        window.addEventListener('resize', function () {
+            clearTimeout(resizeTimer);
+            myChart.resize();
+            // 在重新调整窗口大小时，重新绘制箭头，解决箭头错位或丢失的问题
+            resizeTimer = setTimeout(() => {
+                if (currentJsonData) {
+                    renderChartFromExcel(currentJsonData);
+                }
+            }, 300);
+        });
+
+    </script>
+</body>
+
+</html>

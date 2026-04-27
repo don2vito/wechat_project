@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>批量图片修改工具</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- 引入JSZip和FileSaver.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 标题栏 -->
+        <header class="app-header">
+            <h1>📷 批量图片修改工具</h1>
+            <div class="header-actions">
+                <button id="undoBtn" class="icon-btn" title="撤销 (Ctrl+Z)">↩️</button>
+                <button id="redoBtn" class="icon-btn" title="重做 (Ctrl+Y)">↪️</button>
+                <button id="resetAllBtn" class="danger-btn">重置全部</button>
+            </div>
+        </header>
+
+        <!-- 主内容区 -->
+        <main class="app-main">
+            <!-- 左侧边栏：上传和调整面板 -->
+            <aside class="sidebar">
+                <!-- 上传区域 -->
+                <section class="upload-section">
+                    <h3>📤 导入图片</h3>
+                    <div id="dropZone" class="drop-zone">
+                        <input type="file" id="fileInput" multiple accept="image/jpeg,image/png" hidden>
+                        <div class="drop-zone-content">
+                            <span class="drop-icon">📁</span>
+                            <p>点击或拖曳图片到此处</p>
+                            <p class="hint">支持 JPG、PNG 格式，单次建议不超过20张</p>
+                        </div>
+                    </div>
+                    <button id="uploadBtn" class="primary-btn">批量导入</button>
+                </section>
+
+                <!-- 调整面板 -->
+                <section class="adjust-section">
+                    <h3>🎨 调整参数</h3>
+                    
+                    <div class="control-group">
+                        <label for="brightness">亮度 <span id="brightnessValue">50%</span></label>
+                        <input type="range" id="brightness" min="0" max="100" value="50">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="saturation">饱和度 <span id="saturationValue">0%</span></label>
+                        <input type="range" id="saturation" min="-100" max="100" value="0">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="contrast">对比度 <span id="contrastValue">50%</span></label>
+                        <input type="range" id="contrast" min="0" max="100" value="50">
+                    </div>
+
+                    <div class="control-group">
+                        <label for="hue">色相 <span id="hueValue">0°</span></label>
+                        <input type="range" id="hue" min="0" max="360" value="0">
+                    </div>
+
+                    <button id="applyToAllBtn" class="secondary-btn">应用到全部</button>
+                </section>
+
+                <!-- 滤镜面板 -->
+                <section class="filter-section">
+                    <h3>🖼️ 预设滤镜</h3>
+                    <div class="filter-grid">
+                        <button class="filter-btn" data-filter="none">原图</button>
+                        <button class="filter-btn" data-filter="vintage">复古</button>
+                        <button class="filter-btn" data-filter="grayscale">黑白</button>
+                        <button class="filter-btn" data-filter="vivid">鲜艳</button>
+                        <button class="filter-btn" data-filter="cool">冷色调</button>
+                        <button class="filter-btn" data-filter="warm">暖色调</button>
+                    </div>
+                </section>
+
+                <!-- 重命名面板 -->
+                <section class="rename-section">
+                    <h3>🏷️ 批量重命名</h3>
+                    <div class="control-group">
+                        <label for="baseName">基础名称</label>
+                        <input type="text" id="baseName" placeholder="例如：vacation">
+                    </div>
+                    <div class="control-group">
+                        <label for="startNumber">起始序号</label>
+                        <input type="number" id="startNumber" value="1" min="1">
+                    </div>
+                    <div class="control-group">
+                        <label for="numberDigits">序号位数</label>
+                        <select id="numberDigits">
+                            <option value="2">2位 (01)</option>
+                            <option value="3" selected>3位 (001)</option>
+                            <option value="4">4位 (0001)</option>
+                        </select>
+                    </div>
+                    <p class="preview-text">预览: <span id="renamePreview">-</span></p>
+                    <button id="applyRenameBtn" class="secondary-btn">应用重命名</button>
+                </section>
+
+                <!-- 导出设置面板 -->
+                <section class="export-section">
+                    <h3>💾 导出设置</h3>
+                    <div class="control-group">
+                        <label for="compression">压缩级别</label>
+                        <select id="compression">
+                            <option value="0.9">低压缩 (高质量)</option>
+                            <option value="0.7" selected>中压缩 (推荐)</option>
+                            <option value="0.5">高压缩 (小体积)</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="outputSize">输出尺寸</label>
+                        <select id="outputSize">
+                            <option value="original">原尺寸</option>
+                            <option value="800">小 (800px宽)</option>
+                            <option value="1200">中 (1200px宽)</option>
+                            <option value="1920">大 (1920px宽)</option>
+                            <option value="custom">自定义</option>
+                        </select>
+                    </div>
+                    <div class="control-group custom-size" id="customSizeGroup" style="display: none;">
+                        <label>自定义尺寸</label>
+                        <div class="size-inputs">
+                            <input type="number" id="customWidth" placeholder="宽度">
+                            <span>×</span>
+                            <input type="number" id="customHeight" placeholder="高度">
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="useWorker">
+                            <span>启用后台处理 (Web Worker)</span>
+                        </label>
+                    </div>
+                </section>
+            </aside>
+
+            <!-- 右侧主区域：图片预览 -->
+            <section class="preview-section">
+                <div class="preview-header">
+                    <h3>📋 图片预览 <span id="imageCount">(0张)</span></h3>
+                    <div class="preview-actions">
+                        <button id="selectAllBtn" class="text-btn">全选</button>
+                        <button id="deselectAllBtn" class="text-btn">取消全选</button>
+                        <button id="deleteSelectedBtn" class="danger-btn">删除选中</button>
+                    </div>
+                </div>
+                
+                <div id="imageGrid" class="image-grid">
+                    <div class="empty-state">
+                        <span class="empty-icon">🖼️</span>
+                        <p>暂无图片</p>
+                        <p class="hint">请导入图片开始编辑</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- 底部：进度条和导出按钮 -->
+        <footer class="app-footer">
+            <div class="progress-container" id="progressContainer" style="display: none;">
+                <div class="progress-info">
+                    <span id="progressText">处理中...</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <span id="progressDetail">0/0</span>
+            </div>
+            <button id="downloadBtn" class="primary-btn download-btn" disabled>
+                📦 打包下载
+            </button>
+        </footer>
+    </div>
+
+    <!-- 提示消息容器 -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- 图片预览模态框 -->
+    <div id="previewModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <img id="previewImage" src="" alt="预览">
+            <div class="modal-info">
+                <p id="previewFileName"></p>
+                <p id="previewFileSize"></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>动态化数据图表生成器 V2.0 - 专业数据可视化工具</title>
+    <!-- 引入 ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <!-- 引入 SheetJS 用于解析 Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- 引入 PapaParse 用于解析 CSV/TXT -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <!-- 引入 jsPDF 用于 PDF 导出 -->
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body,
+        html {
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 1000px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* 顶部导入区域 */
+        .import-section {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .import-section h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .import-area {
+            border: 3px dashed #667eea;
+            border-radius: 12px;
+            padding: 40px;
+            background: #f8f9fa;
+            transition: all 0.3s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .import-area:hover {
+            border-color: #764ba2;
+            background: #e3f2fd;
+            transform: translateY(-2px);
+        }
+
+        .import-area.dragover {
+            border-color: #11998e;
+            background: #e8f5e9;
+        }
+
+        .import-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .import-text {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .import-formats {
+            color: #999;
+            font-size: 13px;
+        }
+
+        #file-input {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        /* 控制面板 */
+        .controls-panel {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #555;
+            font-size: 14px;
+        }
+
+        select {
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        select:hover {
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .toggle-color-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        /* 颜色配置面板 */
+        #color-config-panel {
+            display: none;
+            background: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        #color-config-panel h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .color-picker-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .color-picker-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .color-picker-item label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .color-picker-item input[type="color"] {
+            width: 40px;
+            height: 30px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .contrast-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            border: 1px solid #ddd;
+        }
+
+        /* 数据预览 */
+        #data-preview {
+            display: none;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        #data-preview h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 16px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        #preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        #preview-table th,
+        #preview-table td {
+            border: 1px solid #e0e0e0;
+            padding: 10px;
+            text-align: left;
+        }
+
+        #preview-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+        }
+
+        #preview-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        /* 图表容器 */
+        .chart-wrapper {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        #main {
+            width: 100%;
+            height: 600px;
+        }
+
+        /* 导出面板 */
+        .export-panel {
+            background: white;
+            padding: 25px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .export-panel h3 {
+            width: 100%;
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .export-options {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .export-btn {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            padding: 14px 32px;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .export-btn:hover:not(:disabled) {
+            box-shadow: 0 6px 20px rgba(17, 153, 142, 0.4);
+        }
+
+        /* 成功提示 */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            display: none;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast.show {
+            display: flex;
+        }
+
+        /* 加载指示器 */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #fff;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .file-info {
+            margin-top: 15px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .file-info.show {
+            display: block;
+        }
+
+        .file-info p {
+            margin: 5px 0;
+            color: #555;
+            font-size: 14px;
+        }
+
+        .file-info strong {
+            color: #667eea;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- 数据导入区域 -->
+        <div class="import-section">
+            <h1>📊 动态化数据图表生成器</h1>
+            <div class="import-area" id="drop-zone">
+                <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.txt">
+                <div class="import-icon">📁</div>
+                <div class="import-text">点击或拖拽文件到此处上传</div>
+                <div class="import-formats">支持格式：Excel (.xlsx, .xls) | CSV (.csv) | 文本 (.txt)</div>
+            </div>
+            <div class="file-info" id="file-info">
+                <p><strong>文件名：</strong><span id="file-name"></span></p>
+                <p><strong>文件大小：</strong><span id="file-size"></span></p>
+                <p><strong>文件类型：</strong><span id="file-type"></span></p>
+            </div>
+        </div>
+
+        <!-- 控制面板 -->
+        <div class="controls-panel">
+            <div class="control-group">
+                <label for="theme-select">🎨 配色风格：</label>
+                <select id="theme-select">
+                    <option value="business">红灰商务风格 (默认)</option>
+                    <option value="mckinsey_blue">麦肯锡经典蓝 (单色)</option>
+                    <option value="custom">自定义配色</option>
+                </select>
+            </div>
+            <button id="toggle-color-btn" class="toggle-color-btn" style="display: none;">⚙️ 配置颜色</button>
+        </div>
+
+        <!-- 颜色配置面板 -->
+        <div id="color-config-panel">
+            <h3>🎨 系列颜色自定义配置 (自动计算文字对比度)</h3>
+            <div id="color-pickers-container" class="color-picker-container"></div>
+        </div>
+
+        <!-- 数据预览 -->
+        <div id="data-preview">
+            <h3>📄 数据预览 (前 5 行)</h3>
+            <table id="preview-table">
+                <thead id="preview-thead"></thead>
+                <tbody id="preview-tbody"></tbody>
+            </table>
+        </div>
+
+        <!-- 图表区域 -->
+        <div class="chart-wrapper">
+            <div id="main"></div>
+        </div>
+
+        <!-- 导出面板 -->
+        <div class="export-panel">
+            <h3>💾 导出设置</h3>
+            <div class="export-options">
+                <div class="control-group">
+                    <label for="export-format">格式：</label>
+                    <select id="export-format">
+                        <option value="png" selected>PNG</option>
+                        <option value="jpg">JPG</option>
+                        <option value="svg">SVG</option>
+                        <option value="pdf">PDF</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="export-dpi">分辨率 (DPI)：</label>
+                    <select id="export-dpi">
+                        <option value="150">150 DPI (标准)</option>
+                        <option value="300" selected>300 DPI (高清)</option>
+                        <option value="600">600 DPI (超高清)</option>
+                    </select>
+                </div>
+                <button id="export-btn" class="export-btn">📷 导出图表</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 成功提示 -->
+    <div class="toast" id="toast">
+        <span>✅</span>
+        <span id="toast-message">导出成功！</span>
+    </div>
+
+    <!-- 加载指示器 -->
+    <div class="loading-overlay" id="loading">
+        <div class="spinner"></div>
+    </div>
+
+    <script>
+        // 初始化图表
+        var chartDom = document.getElementById('main');
+        var myChart = echarts.init(chartDom, null, {
+            renderer: 'canvas',
+            width: 900,
+            height: 600
+        });
+
+        var currentJsonData = null;
+        var currentCategories = [];
+        var customColors = {};
+        var currentFileName = '';
+
+        // 预设主题色彩
+        const colorThemes = {
+            business: ['#c32026', '#f08994', '#f6b8c4', '#ffb74d', '#4db6ac', '#4fc3f7', '#ba68c8'],
+            mckinsey_blue: ['#003b5c', '#1f70a9', '#5494c5', '#8eb6db', '#a3c6df', '#cddbed']
+        };
+
+        /**
+         * 智能对比度计算函数
+         */
+        function getContrastColor(bgColor) {
+            if (!bgColor) return '#ffffff';
+            bgColor = bgColor.toString().replace('#', '');
+            if (bgColor.length === 3) {
+                bgColor = bgColor[0] + bgColor[0] + bgColor[1] + bgColor[1] + bgColor[2] + bgColor[2];
+            }
+            if (bgColor.length !== 6) return '#ffffff';
+            
+            const r = parseInt(bgColor.substring(0, 2), 16) / 255.0;
+            const g = parseInt(bgColor.substring(2, 4), 16) / 255.0;
+            const b = parseInt(bgColor.substring(4, 6), 16) / 255.0;
+            
+            const getLuminance = (c) => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+            const luminance = 0.2126 * getLuminance(r) + 0.7152 * getLuminance(g) + 0.0722 * getLuminance(b);
+            
+            return luminance > 0.5 ? '#000000' : '#ffffff';
+        }
+
+        /**
+         * 格式化时间戳
+         */
+        function formatTimestamp() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            return `${year}${month}${day}_${hours}${minutes}${seconds}`;
+        }
+
+        /**
+         * 显示提示信息
+         */
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        /**
+         * 显示/隐藏加载
+         */
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('show', show);
+        }
+
+        /**
+         * 文件导入处理 - 支持 Excel、CSV、TXT
+         */
+        function handleFileImport(file) {
+            if (!file) return;
+
+            showLoading(true);
+            currentFileName = file.name;
+            const extension = file.name.split('.').pop().toLowerCase();
+
+            // 显示文件信息
+            document.getElementById('file-name').textContent = file.name;
+            document.getElementById('file-size').textContent = (file.size / 1024).toFixed(2) + ' KB';
+            document.getElementById('file-type').textContent = extension.toUpperCase();
+            document.getElementById('file-info').classList.add('show');
+
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    if (extension === 'xlsx' || extension === 'xls') {
+                        // Excel 处理
+                        handleExcel(e.target.result);
+                    } else if (extension === 'csv' || extension === 'txt') {
+                        // CSV/TXT 处理
+                        handleCSV(e.target.result, extension);
+                    }
+                } catch (error) {
+                    console.error('解析错误:', error);
+                    alert('文件解析失败，请检查文件格式是否正确');
+                    showLoading(false);
+                }
+            };
+
+            if (extension === 'xlsx' || extension === 'xls') {
+                reader.readAsArrayBuffer(file);
+            } else {
+                reader.readAsText(file);
+            }
+        }
+
+        /**
+         * 处理 Excel 文件
+         */
+        function handleExcel(data) {
+            const uint8 = new Uint8Array(data);
+            const workbook = XLSX.read(uint8, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+            processData(jsonData);
+        }
+
+        /**
+         * 处理 CSV/TXT 文件
+         */
+        function handleCSV(text, type) {
+            Papa.parse(text, {
+                complete: function(results) {
+                    if (results.data && results.data.length > 0) {
+                        // 过滤空行
+                        const filteredData = results.data.filter(row => 
+                            row.some(cell => cell !== null && cell !== undefined && cell !== '')
+                        );
+                        processData(filteredData);
+                    } else {
+                        alert('CSV/TXT 文件为空或格式不正确');
+                        showLoading(false);
+                    }
+                },
+                error: function(error) {
+                    console.error('CSV解析错误:', error);
+                    alert('CSV/TXT 文件解析失败');
+                    showLoading(false);
+                },
+                skipEmptyLines: true,
+                dynamicTyping: true
+            });
+        }
+
+        /**
+         * 处理解析后的数据
+         */
+        function processData(data) {
+            if (data.length > 1) {
+                currentJsonData = data;
+                const headers = data[0];
+                currentCategories = headers.slice(1);
+
+                if (document.getElementById('theme-select').value === 'custom') {
+                    generateColorPickers(currentCategories);
+                    document.getElementById('toggle-color-btn').style.display = 'inline-block';
+                }
+
+                renderTablePreview(data);
+                renderChartFromExcel(data);
+                showLoading(false);
+            } else {
+                alert('数据为空或格式不正确。请确保第一行为表头，往下为数据。');
+                showLoading(false);
+            }
+        }
+
+        /**
+         * 渲染表格预览
+         */
+        function renderTablePreview(dataArray) {
+            const previewDiv = document.getElementById('data-preview');
+            const thead = document.getElementById('preview-thead');
+            const tbody = document.getElementById('preview-tbody');
+
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+
+            const headers = dataArray[0] || [];
+            let theadHtml = '<tr>';
+            headers.forEach(h => theadHtml += `<th>${h || ''}</th>`);
+            theadHtml += '</tr>';
+            thead.innerHTML = theadHtml;
+
+            const rows = dataArray.slice(1, 6);
+            let tbodyHtml = '';
+            rows.forEach(row => {
+                tbodyHtml += '<tr>';
+                headers.forEach((_, index) => {
+                    const cellData = row[index] !== undefined && row[index] !== null ? row[index] : '';
+                    tbodyHtml += `<td>${cellData}</td>`;
+                });
+                tbodyHtml += '</tr>';
+            });
+            tbody.innerHTML = tbodyHtml;
+            previewDiv.style.display = 'block';
+        }
+
+        /**
+         * 生成颜色选择器
+         */
+        function generateColorPickers(categories) {
+            const container = document.getElementById('color-pickers-container');
+            container.innerHTML = '';
+
+            const currentTheme = document.getElementById('theme-select').value;
+            let defaultColors;
+            if (currentTheme === 'custom' && Object.keys(customColors).length > 0) {
+                defaultColors = categories.map((_, i) => customColors[i] || colorThemes.business[i % colorThemes.business.length]);
+            } else {
+                defaultColors = categories.map((_, i) => {
+                    const themeColors = colorThemes[currentTheme] || colorThemes.business;
+                    return themeColors[i % themeColors.length];
+                });
+            }
+
+            categories.forEach((cat, index) => {
+                const item = document.createElement('div');
+                item.className = 'color-picker-item';
+                
+                const label = document.createElement('label');
+                label.textContent = cat;
+                
+                const colorInput = document.createElement('input');
+                colorInput.type = 'color';
+                colorInput.value = defaultColors[index];
+                colorInput.dataset.index = index;
+                
+                const contrastIndicator = document.createElement('div');
+                contrastIndicator.className = 'contrast-indicator';
+                const contrastColor = getContrastColor(defaultColors[index]);
+                contrastIndicator.style.backgroundColor = defaultColors[index];
+                contrastIndicator.style.color = contrastColor;
+                contrastIndicator.textContent = contrastColor === '#ffffff' ? '白' : '黑';
+                
+                colorInput.addEventListener('input', function() {
+                    customColors[index] = this.value;
+                    const newContrastColor = getContrastColor(this.value);
+                    contrastIndicator.style.backgroundColor = this.value;
+                    contrastIndicator.style.color = newContrastColor;
+                    contrastIndicator.textContent = newContrastColor === '#ffffff' ? '白' : '黑';
+                    if (currentJsonData) renderChartFromExcel(currentJsonData);
+                });
+                
+                item.appendChild(label);
+                item.appendChild(colorInput);
+                item.appendChild(contrastIndicator);
+                container.appendChild(item);
+            });
+
+            categories.forEach((_, i) => {
+                if (!customColors[i]) customColors[i] = defaultColors[i];
+            });
+        }
+
+        /**
+         * 渲染图表
+         */
+        function renderChartFromExcel(dataArray) {
+            const currentTheme = document.getElementById('theme-select').value;
+            let activeColors = currentTheme === 'custom' 
+                ? currentCategories.map((_, i) => customColors[i] || colorThemes.business[i % colorThemes.business.length])
+                : (colorThemes[currentTheme] || colorThemes.business);
+
+            const cleanData = dataArray.filter(row => row.length > 0 && row[0] != null);
+            const headers = cleanData[0];
+            const categories = headers.slice(1);
+            const rows = cleanData.slice(1);
+            const years = rows.map(row => row[0]);
+
+            const seriesData = categories.map((cat, index) => ({
+                name: cat,
+                data: rows.map(row => Number(row[index + 1]) || 0)
+            }));
+
+            const totals = rows.map(row => {
+                let sum = 0;
+                for (let i = 1; i < row.length; i++) sum += (Number(row[i]) || 0);
+                return sum;
+            });
+
+            const seriesConfig = seriesData.map((sd, index) => {
+                const bgColor = activeColors[index % activeColors.length];
+                const textColor = getContrastColor(bgColor);
+                
+                return {
+                    name: sd.name,
+                    type: 'bar',
+                    stack: 'total',
+                    barWidth: 60,
+                    itemStyle: { color: bgColor },
+                    label: {
+                        show: true,
+                        position: 'inside',
+                        formatter: '{c}',
+                        color: textColor,
+                        fontSize: 11,
+                        fontWeight: 'bold',
+                        textShadowColor: textColor === '#ffffff' ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.5)',
+                        textShadowBlur: 2,
+                        textShadowOffsetY: 1
+                    },
+                    data: sd.data
+                };
+            });
+
+            seriesConfig.push({
+                name: '总计辅助柱',
+                type: 'bar',
+                stack: 'total',
+                itemStyle: { color: 'transparent' },
+                label: {
+                    show: true,
+                    position: 'top',
+                    formatter: params => totals[params.dataIndex],
+                    color: '#333',
+                    fontSize: 16,
+                    fontWeight: 'bold'
+                },
+                data: Array(totals.length).fill(0)
+            });
+
+            const option = {
+                animation: true,
+                legend: {
+                    data: categories,
+                    icon: 'square',
+                    top: 15,
+                    textStyle: { color: '#666', fontSize: 13 }
+                },
+                grid: {
+                    left: '5%', right: '5%', bottom: '10%', top: '15%', containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: years,
+                    axisLine: { lineStyle: { color: '#ccc' } },
+                    axisTick: { show: false },
+                    axisLabel: { color: '#666', fontSize: 13, margin: 15 }
+                },
+                yAxis: {
+                    type: 'value',
+                    show: false,
+                    max: Math.max(...totals) * 1.35
+                },
+                series: seriesConfig,
+                graphic: { elements: [] }
+            };
+
+            myChart.setOption({ graphic: { elements: [] } });
+            myChart.setOption(option, true);
+            setTimeout(() => drawArrows(years, totals), 200);
+        }
+
+        /**
+         * 绘制增长箭头
+         */
+        function drawArrows(years, totals) {
+            const graphicElements = [];
+            const gapOffset = 35;
+
+            for (let i = 1; i < years.length; i++) {
+                const prevTotal = totals[i - 1];
+                const currTotal = totals[i];
+                if (prevTotal === 0) continue;
+
+                const diff = currTotal - prevTotal;
+                const isNegative = diff < 0;
+                const growthRateStr = (diff >= 0 ? '+' : '') + Math.round((diff) / prevTotal * 100) + '%';
+
+                const p1Raw = myChart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [i - 1, prevTotal]);
+                const p2Raw = myChart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [i, currTotal]);
+                if (!p1Raw || !p2Raw) continue;
+
+                const p1 = [p1Raw[0] + gapOffset, p1Raw[1]];
+                const p2 = [p2Raw[0] - gapOffset, p2Raw[1]];
+
+                const badgeColor = isNegative ? '#C00000' : '#37475a';
+                const lineColor = isNegative ? '#C00000' : '#555';
+                const staggerOffset = (i % 2 === 0) ? 30 : 0;
+                const lineTopY = Math.min(p1[1], p2[1]) - 60 - staggerOffset;
+
+                graphicElements.push({
+                    type: 'polyline',
+                    z: 100,
+                    shape: {
+                        points: [
+                            [p1[0], p1[1] - 25],
+                            [p1[0], lineTopY],
+                            [p2[0], lineTopY],
+                            [p2[0], p2[1] - 35]
+                        ]
+                    },
+                    style: { stroke: lineColor, lineWidth: 1 }
+                });
+
+                graphicElements.push({
+                    type: 'polygon',
+                    z: 100,
+                    shape: {
+                        points: [
+                            [p2[0], p2[1] - 25],
+                            [p2[0] - 4, p2[1] - 33],
+                            [p2[0] + 4, p2[1] - 33]
+                        ]
+                    },
+                    style: { fill: lineColor }
+                });
+
+                const textCenterX = (p1[0] + p2[0]) / 2;
+                const textCenterY = lineTopY;
+
+                graphicElements.push({
+                    type: 'circle',
+                    z: 100,
+                    shape: { cx: textCenterX, cy: textCenterY, r: 18 },
+                    style: { fill: badgeColor }
+                });
+
+                const textLength = growthRateStr.length;
+                graphicElements.push({
+                    type: 'text',
+                    z: 100,
+                    style: {
+                        text: growthRateStr,
+                        x: textCenterX - (textLength * 3.5),
+                        y: textCenterY - 5,
+                        fill: '#fff',
+                        fontSize: 11,
+                        fontWeight: 'bold'
+                    }
+                });
+            }
+
+            myChart.setOption({ graphic: { elements: graphicElements } }, false);
+        }
+
+        /**
+         * 导出功能 - 支持多格式、多DPI、路径选择
+         */
+        document.getElementById('export-btn').addEventListener('click', async function() {
+            if (!currentJsonData) {
+                alert('请先导入数据！');
+                return;
+            }
+
+            const btn = this;
+            btn.disabled = true;
+            showLoading(true);
+
+            try {
+                const format = document.getElementById('export-format').value;
+                const dpi = parseInt(document.getElementById('export-dpi').value);
+                
+                // 计算像素比例 (96 DPI 为基准)
+                const pixelRatio = dpi / 96;
+                const timestamp = formatTimestamp();
+                const baseFilename = `商务带箭头柱形图_${timestamp}`;
+
+                // 等待图表渲染完成
+                await new Promise(resolve => setTimeout(resolve, 300));
+
+                if (format === 'svg') {
+                    await exportSVG(baseFilename);
+                } else if (format === 'pdf') {
+                    await exportPDF(baseFilename, pixelRatio);
+                } else {
+                    await exportImage(baseFilename, format, pixelRatio);
+                }
+
+            } catch (error) {
+                console.error('导出失败:', error);
+                alert('导出失败: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                showLoading(false);
+            }
+        });
+
+        /**
+         * 导出 PNG/JPG
+         */
+        async function exportImage(baseFilename, format, pixelRatio) {
+            const currentOption = JSON.parse(JSON.stringify(myChart.getOption()));
+            const originalWidth = myChart.getWidth();
+            const originalHeight = myChart.getHeight();
+
+            // 创建临时容器
+            const tempContainer = document.createElement('div');
+            tempContainer.style.cssText = `
+                position: fixed;
+                left: -9999px;
+                top: -9999px;
+                width: ${originalWidth}px;
+                height: ${originalHeight}px;
+                background: #ffffff;
+            `;
+            document.body.appendChild(tempContainer);
+
+            const tempChart = echarts.init(tempContainer, null, {
+                renderer: 'canvas',
+                width: originalWidth,
+                height: originalHeight
+            });
+
+            const exportOption = {
+                ...currentOption,
+                animation: false,
+                animationDuration: 0
+            };
+
+            // 重新应用颜色配置
+            if (exportOption.series) {
+                exportOption.series.forEach((series, index) => {
+                    if (series.name !== '总计辅助柱' && customColors[index]) {
+                        series.itemStyle = series.itemStyle || {};
+                        series.itemStyle.color = customColors[index];
+                        if (series.label) {
+                            series.label.color = getContrastColor(customColors[index]);
+                        }
+                    }
+                });
+            }
+
+            tempChart.setOption(exportOption, true);
+
+            // 等待渲染完成
+            await new Promise((resolve) => {
+                let finished = false;
+                tempChart.on('finished', () => {
+                    if (!finished) {
+                        finished = true;
+                        resolve();
+                    }
+                });
+                setTimeout(() => {
+                    if (!finished) {
+                        finished = true;
+                        resolve();
+                    }
+                }, 800);
+            });
+
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // 生成图片
+            const url = tempChart.getDataURL({
+                type: format,
+                pixelRatio: pixelRatio,
+                backgroundColor: '#ffffff'
+            });
+
+            // 尝试使用 File System Access API 保存文件
+            const filename = `${baseFilename}.${format}`;
+            const saved = await saveFileWithPicker(filename, url, format);
+            
+            if (!saved) {
+                // 降级方案：传统下载
+                const a = document.createElement('a');
+                a.download = filename;
+                a.href = url;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+
+            tempChart.dispose();
+            document.body.removeChild(tempContainer);
+            
+            showToast(`已成功导出 ${format.toUpperCase()} 格式 (${document.getElementById('export-dpi').value} DPI)`);
+        }
+
+        /**
+         * 导出 SVG
+         */
+        async function exportSVG(baseFilename) {
+            // 切换到 SVG 渲染器重新渲染
+            const currentOption = myChart.getOption();
+            
+            const tempContainer = document.createElement('div');
+            tempContainer.style.cssText = `
+                position: fixed;
+                left: -9999px;
+                top: -9999px;
+                width: 900px;
+                height: 600px;
+            `;
+            document.body.appendChild(tempContainer);
+
+            const svgChart = echarts.init(tempContainer, null, {
+                renderer: 'svg',
+                width: 900,
+                height: 600
+            });
+
+            const exportOption = {
+                ...JSON.parse(JSON.stringify(currentOption)),
+                animation: false
+            };
+
+            svgChart.setOption(exportOption, true);
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // 获取 SVG 字符串
+            const svgString = svgChart.getDataURL({
+                type: 'svg',
+                pixelRatio: 1
+            });
+
+            // 尝试保存
+            const filename = `${baseFilename}.svg`;
+            const saved = await saveFileWithPicker(filename, svgString, 'svg');
+            
+            if (!saved) {
+                const blob = new Blob([svgString], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.download = filename;
+                a.href = url;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            svgChart.dispose();
+            document.body.removeChild(tempContainer);
+            
+            showToast('已成功导出 SVG 矢量格式');
+        }
+
+        /**
+         * 导出 PDF
+         */
+        async function exportPDF(baseFilename, pixelRatio) {
+            const { jsPDF } = window.jspdf;
+            
+            // 先导出为 PNG
+            const currentOption = JSON.parse(JSON.stringify(myChart.getOption()));
+            const originalWidth = myChart.getWidth();
+            const originalHeight = myChart.getHeight();
+
+            const tempContainer = document.createElement('div');
+            tempContainer.style.cssText = `
+                position: fixed;
+                left: -9999px;
+                top: -9999px;
+                width: ${originalWidth}px;
+                height: ${originalHeight}px;
+                background: #ffffff;
+            `;
+            document.body.appendChild(tempContainer);
+
+            const tempChart = echarts.init(tempContainer, null, {
+                renderer: 'canvas',
+                width: originalWidth,
+                height: originalHeight
+            });
+
+            const exportOption = {
+                ...currentOption,
+                animation: false
+            };
+
+            tempChart.setOption(exportOption, true);
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            const imgData = tempChart.getDataURL({
+                type: 'png',
+                pixelRatio: pixelRatio,
+                backgroundColor: '#ffffff'
+            });
+
+            tempChart.dispose();
+            document.body.removeChild(tempContainer);
+
+            // 创建 PDF
+            const imgWidth = 210; // A4 宽度 (mm)
+            const pageHeight = 297; // A4 高度 (mm)
+            const imgHeight = (originalHeight / originalWidth) * imgWidth;
+            
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const x = (imgWidth - imgWidth) / 2; // 居中
+            const y = 20; // 顶部边距
+            
+            pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+            
+            // 添加元数据
+            pdf.setProperties({
+                title: '商务带箭头柱形图',
+                subject: '数据可视化报告',
+                creator: '动态化数据图表生成器',
+                creationDate: new Date()
+            });
+
+            // 尝试保存 PDF
+            const filename = `${baseFilename}.pdf`;
+            const pdfBlob = pdf.output('blob');
+            
+            try {
+                // 尝试使用 File System Access API
+                if ('showSaveFilePicker' in window) {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: filename,
+                        types: [{
+                            description: 'PDF 文件',
+                            accept: { 'application/pdf': ['.pdf'] }
+                        }]
+                    });
+                    const writable = await handle.createWritable();
+                    await writable.write(pdfBlob);
+                    await writable.close();
+                    showToast('已成功导出 PDF 格式');
+                } else {
+                    // 降级方案
+                    pdf.save(filename);
+                    showToast('已成功导出 PDF 格式');
+                }
+            } catch (err) {
+                // 用户取消或失败，使用默认下载
+                pdf.save(filename);
+                showToast('已成功导出 PDF 格式');
+            }
+        }
+
+        /**
+         * 使用 File System Access API 保存文件（支持路径选择）
+         */
+        async function saveFileWithPicker(suggestedName, dataUrl, type) {
+            // 检查浏览器支持
+            if (!('showSaveFilePicker' in window)) {
+                return false; // 不支持，使用降级方案
+            }
+
+            try {
+                // 确定 MIME 类型和文件扩展名
+                const mimeTypes = {
+                    'png': 'image/png',
+                    'jpg': 'image/jpeg',
+                    'svg': 'image/svg+xml'
+                };
+
+                const acceptTypes = {
+                    'png': { 'image/png': ['.png'] },
+                    'jpg': { 'image/jpeg': ['.jpg', '.jpeg'] },
+                    'svg': { 'image/svg+xml': ['.svg'] }
+                };
+
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: suggestedName,
+                    types: [{
+                        description: `${type.toUpperCase()} 图片`,
+                        accept: acceptTypes[type] || { '*/*': [] }
+                    }]
+                });
+
+                // 写入文件
+                const writable = await handle.createWritable();
+                
+                if (type === 'svg') {
+                    // SVG 直接写入文本
+                    const response = await fetch(dataUrl);
+                    const blob = await response.blob();
+                    await writable.write(blob);
+                } else {
+                    // 图片转换为 Blob 写入
+                    const response = await fetch(dataUrl);
+                    const blob = await response.blob();
+                    await writable.write(blob);
+                }
+                
+                await writable.close();
+                return true;
+            } catch (err) {
+                // 用户取消保存
+                if (err.name === 'AbortError') {
+                    console.log('用户取消了保存');
+                    return false;
+                }
+                console.error('File System Access API 失败:', err);
+                return false;
+            }
+        }
+
+        // 事件监听器设置
+        document.getElementById('file-input').addEventListener('change', function(e) {
+            handleFileImport(e.target.files[0]);
+        });
+
+        // 拖拽上传
+        const dropZone = document.getElementById('drop-zone');
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileImport(files[0]);
+            }
+        });
+
+        document.getElementById('toggle-color-btn').addEventListener('click', function() {
+            const panel = document.getElementById('color-config-panel');
+            if (panel.style.display === 'none' || panel.style.display === '') {
+                panel.style.display = 'block';
+                this.textContent = '⚙️ 隐藏配置';
+            } else {
+                panel.style.display = 'none';
+                this.textContent = '⚙️ 配置颜色';
+            }
+        });
+
+        document.getElementById('theme-select').addEventListener('change', function() {
+            const toggleBtn = document.getElementById('toggle-color-btn');
+            const panel = document.getElementById('color-config-panel');
+            
+            if (this.value === 'custom') {
+                toggleBtn.style.display = 'inline-block';
+                if (currentCategories.length > 0) {
+                    generateColorPickers(currentCategories);
+                }
+            } else {
+                toggleBtn.style.display = 'none';
+                panel.style.display = 'none';
+                customColors = {};
+            }
+            
+            if (currentJsonData) renderChartFromExcel(currentJsonData);
+        });
+
+        // 初始化演示数据
+        const initMockData = [
+            ['年度', '东南亚', '北欧', '美国'],
+            ['2024', 48, 78, 80],
+            ['2025', 56, 120, 157],
+            ['2026', 61, 202, 260],
+            ['2027', 40, 90, 120]
+        ];
+
+        currentJsonData = initMockData;
+        currentCategories = initMockData[0].slice(1);
+        currentCategories.forEach((_, i) => {
+            customColors[i] = colorThemes.business[i % colorThemes.business.length];
+        });
+
+        renderTablePreview(initMockData);
+        renderChartFromExcel(initMockData);
+
+        // 响应式处理
+        let resizeTimer;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimer);
+            myChart.resize();
+            resizeTimer = setTimeout(() => {
+                if (currentJsonData) renderChartFromExcel(currentJsonData);
+            }, 300);
+        });
+    </script>
+</body>
+
+</html>

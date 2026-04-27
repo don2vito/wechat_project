@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PixelForge - 批量图片修改工具</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg-primary: #0a0a0f;
+    --bg-secondary: #12121a;
+    --bg-tertiary: #1a1a25;
+    --bg-elevated: #222230;
+    --accent-primary: #f59e0b;
+    --accent-secondary: #fbbf24;
+    --accent-glow: rgba(245,158,11,0.15);
+    --success: #10b981;
+    --error: #ef4444;
+    --info: #3b82f6;
+    --text-primary: #f0f0f5;
+    --text-secondary: #8888a0;
+    --text-muted: #55556a;
+    --border: #2a2a3a;
+    --border-active: #f59e0b;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --header-h: 56px;
+    --footer-h: 48px;
+    --left-w: 280px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--font-body);background:var(--bg-primary);color:var(--text-primary);display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+input,button,select,textarea{font-family:inherit}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}
+
+#header{height:var(--header-h);background:var(--bg-secondary);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 16px;flex-shrink:0;z-index:100}
+.header-left{display:flex;align-items:center;gap:12px}
+.logo{font-family:var(--font-display);font-size:20px;font-weight:700;background:linear-gradient(135deg,var(--accent-primary),var(--accent-secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-0.5px}
+.header-center{display:flex;align-items:center;gap:4px}
+.header-right{display:flex;align-items:center;gap:8px}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;white-space:nowrap}
+.btn:hover{background:var(--bg-elevated);border-color:var(--text-muted)}
+.btn:active{transform:scale(0.95)}
+.btn:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+.btn-accent{background:var(--accent-primary);border-color:var(--accent-primary);color:#000;font-weight:600}
+.btn-accent:hover{background:var(--accent-secondary);border-color:var(--accent-secondary)}
+.btn-primary{background:linear-gradient(135deg,var(--accent-primary),#d97706);border-color:var(--accent-primary);color:#000;font-weight:600}
+.btn-primary:hover{background:linear-gradient(135deg,var(--accent-secondary),var(--accent-primary))}
+.btn-sm{padding:4px 10px;font-size:12px}
+.icon-btn{width:36px;height:36px;border-radius:8px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s}
+.icon-btn:hover{background:var(--bg-elevated);color:var(--text-primary);border-color:var(--text-muted)}
+.icon-btn:active{transform:scale(0.93)}
+.icon-btn:disabled{opacity:0.3;cursor:not-allowed;transform:none}
+.icon-btn svg{width:18px;height:18px}
+
+#main{flex:1;display:flex;overflow:hidden;background:var(--bg-primary)}
+
+#leftPanel{width:var(--left-w);flex-shrink:0;background:var(--bg-secondary);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+
+#uploadArea{margin:12px;padding:20px 12px;border:2px dashed var(--border);border-radius:10px;text-align:center;cursor:pointer;transition:all 0.3s;position:relative;background:var(--bg-tertiary)}
+#uploadArea:hover{border-color:var(--text-muted);background:var(--bg-elevated)}
+#uploadArea.drag-over{border-color:var(--accent-primary);background:var(--accent-glow);animation:pulse-glow 1.5s ease-in-out infinite}
+.upload-icon{margin-bottom:8px;color:var(--text-muted)}
+.upload-icon svg{width:36px;height:36px}
+#uploadArea p{font-size:13px;color:var(--text-secondary);line-height:1.5}
+.upload-hint{font-size:11px!important;color:var(--text-muted)!important;margin-top:4px}
+
+#selectAllBar{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border)}
+#imageCount{font-size:12px;color:var(--text-muted)}
+
+#thumbnailGrid{flex:1;overflow-y:auto;padding:8px;display:grid;grid-template-columns:repeat(2,1fr);gap:8px;align-content:start}
+.thumb-item{position:relative;border-radius:8px;overflow:hidden;border:2px solid transparent;cursor:pointer;transition:all 0.25s;background:var(--bg-tertiary);aspect-ratio:1}
+.thumb-item:hover{border-color:var(--text-muted);transform:translateY(-1px)}
+.thumb-item.selected{border-color:var(--accent-primary);box-shadow:0 0 12px var(--accent-glow);transform:scale(1.02)}
+.thumb-item img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.thumb-check{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:var(--accent-primary);color:#000;display:none;align-items:center;justify-content:center;font-size:12px;font-weight:700;animation:check-pop 0.25s ease}
+.thumb-item.selected .thumb-check{display:flex}
+.thumb-info{position:absolute;bottom:0;left:0;right:0;padding:3px 6px;background:linear-gradient(transparent,rgba(0,0,0,0.8));font-size:10px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+#rightPanel{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+#emptyState{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--text-muted)}
+.empty-icon svg{width:64px;height:64px;opacity:0.3}
+#emptyState h2{font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--text-secondary)}
+#emptyState p{font-size:14px}
+
+#editorArea{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+#previewArea{flex:1;display:flex;align-items:center;justify-content:center;background:var(--bg-primary);overflow:hidden;position:relative;min-height:200px}
+#previewCanvas{max-width:100%;max-height:100%;border-radius:4px;image-rendering:auto}
+
+#tabBar{display:flex;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg-secondary);flex-shrink:0}
+.tab-btn{flex:1;padding:10px 8px;border:none;background:transparent;color:var(--text-muted);font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;position:relative;font-family:var(--font-body)}
+.tab-btn:hover{color:var(--text-secondary);background:var(--bg-tertiary)}
+.tab-btn.active{color:var(--accent-primary)}
+.tab-btn.active::after{content:'';position:absolute;bottom:0;left:20%;right:20%;height:2px;background:var(--accent-primary);border-radius:1px}
+
+#tabContent{flex-shrink:0;height:220px;overflow-y:auto;background:var(--bg-secondary)}
+.tab-panel{display:none;padding:16px;animation:tab-fade-in 0.25s ease}
+.tab-panel.active{display:block}
+
+.slider-group{margin-bottom:14px}
+.slider-group label{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--text-secondary);margin-bottom:6px}
+.slider-group label span{color:var(--accent-primary);font-weight:600;font-family:var(--font-display);min-width:36px;text-align:right}
+.slider-row{display:flex;align-items:center;gap:8px}
+input[type="range"]{-webkit-appearance:none;appearance:none;flex:1;height:6px;border-radius:3px;background:var(--bg-elevated);outline:none;cursor:pointer}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent-primary);cursor:pointer;border:2px solid var(--bg-secondary);box-shadow:0 0 0 2px rgba(245,158,11,0.2);transition:box-shadow 0.2s,transform 0.15s}
+input[type="range"]::-webkit-slider-thumb:hover{box-shadow:0 0 0 4px rgba(245,158,11,0.3),0 0 12px rgba(245,158,11,0.4);transform:scale(1.1)}
+input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--accent-primary);cursor:pointer;border:2px solid var(--bg-secondary);box-shadow:0 0 0 2px rgba(245,158,11,0.2)}
+.reset-btn{padding:2px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;transition:all 0.2s;white-space:nowrap}
+.reset-btn:hover{color:var(--text-primary);border-color:var(--text-muted)}
+
+.form-group{margin-bottom:12px}
+.form-group label{display:block;font-size:13px;color:var(--text-secondary);margin-bottom:4px}
+.form-group input[type="text"],.form-group input[type="number"],.form-group select{width:100%;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;outline:none;transition:border-color 0.2s}
+.form-group input:focus,.form-group select:focus{border-color:var(--accent-primary)}
+.form-group select{cursor:pointer}
+.form-row{display:flex;gap:12px}
+.form-row .form-group{flex:1}
+#estimatedSize{font-size:13px;color:var(--accent-secondary);padding:8px 0;font-weight:500}
+
+#filterGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.filter-item{text-align:center;cursor:pointer;border-radius:8px;border:2px solid transparent;transition:all 0.2s;padding:4px}
+.filter-item:hover{border-color:var(--text-muted);background:var(--bg-tertiary)}
+.filter-item.active{border-color:var(--accent-primary);background:var(--accent-glow)}
+.filter-item canvas{width:100%;aspect-ratio:1;border-radius:6px;display:block;background:var(--bg-elevated)}
+.filter-item span{display:block;font-size:11px;color:var(--text-secondary);margin-top:4px}
+.filter-item.active span{color:var(--accent-primary)}
+
+#renamePreview{max-height:100px;overflow-y:auto;background:var(--bg-tertiary);border-radius:6px;padding:8px;margin-top:8px}
+.rename-item{font-size:12px;color:var(--text-secondary);padding:2px 0;font-family:monospace}
+.rename-item .arrow{color:var(--text-muted);margin:0 6px}
+.rename-item .new-name{color:var(--accent-secondary)}
+
+#footer{height:var(--footer-h);flex-shrink:0;background:var(--bg-secondary);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 16px}
+#progressArea{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+#progressBar{flex:1;max-width:300px;height:8px;background:var(--bg-tertiary);border-radius:4px;overflow:hidden;position:relative}
+#progressFill{height:100%;width:0%;border-radius:4px;background:linear-gradient(90deg,var(--accent-primary),var(--accent-secondary));transition:width 0.3s;position:relative}
+#progressFill.active::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(-45deg,transparent,transparent 6px,rgba(255,255,255,0.15) 6px,rgba(255,255,255,0.15) 12px);animation:progress-stripe 0.8s linear infinite}
+#progressText{font-size:12px;color:var(--text-muted);white-space:nowrap}
+#actionButtons{display:flex;gap:6px;flex-shrink:0}
+
+#toastContainer{position:fixed;top:68px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{padding:10px 16px;border-radius:8px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(0,0,0,0.4);transform:translateX(120%);transition:transform 0.35s cubic-bezier(0.22,1,0.36,1),opacity 0.3s;opacity:0;min-width:200px;border:1px solid}
+.toast.show{transform:translateX(0);opacity:1}
+.toast.hide{transform:translateX(120%);opacity:0}
+.toast-success{background:rgba(16,185,129,0.15);border-color:rgba(16,185,129,0.3);color:var(--success)}
+.toast-error{background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.3);color:var(--error)}
+.toast-info{background:rgba(59,130,246,0.15);border-color:rgba(59,130,246,0.3);color:var(--info)}
+.toast svg{width:16px;height:16px;flex-shrink:0}
+
+@keyframes pulse-glow{0%,100%{box-shadow:0 0 8px var(--accent-glow)}50%{box-shadow:0 0 20px rgba(245,158,11,0.3)}}
+@keyframes check-pop{0%{transform:scale(0)}60%{transform:scale(1.2)}100%{transform:scale(1)}}
+@keyframes progress-stripe{0%{background-position:0 0}100%{background-position:24px 0}}
+@keyframes tab-fade-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+@media(max-width:1023px){
+    #leftPanel{width:100%;height:auto;max-height:140px;border-right:none;border-bottom:1px solid var(--border);flex-direction:row}
+    #uploadArea{display:none}
+    #selectAllBar{padding:6px 12px;border-bottom:none;border-right:1px solid var(--border);flex-direction:column;gap:4px;width:auto}
+    #thumbnailGrid{flex-direction:row;overflow-x:auto;overflow-y:hidden;grid-template-columns:none;display:flex;gap:8px;padding:8px}
+    .thumb-item{min-width:80px;width:80px;height:80px;aspect-ratio:1;flex-shrink:0}
+    #main{flex-direction:column}
+}
+@media(max-width:767px){
+    #leftPanel{display:none}
+    #leftPanel.mobile-show{display:flex;position:absolute;inset:var(--header-h) 0 var(--footer-h) 0;z-index:50;flex-direction:column}
+    #leftPanel.mobile-show #uploadArea{display:block}
+    #leftPanel.mobile-show #thumbnailGrid{display:grid;flex-direction:column;overflow-y:auto}
+    #leftPanel.mobile-show .thumb-item{width:auto;min-width:0}
+    #actionButtons .btn span.btn-text{display:none}
+    .mobile-toggle{display:flex!important}
+    #tabContent{height:180px}
+}
+.mobile-toggle{display:none!important}
+</style>
+</head>
+<body>
+
+<header id="header">
+    <div class="header-left">
+        <button class="icon-btn mobile-toggle" id="mobileToggle" title="图片列表">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        </button>
+        <span class="logo">PixelForge</span>
+    </div>
+    <div class="header-center">
+        <button class="icon-btn" id="undoBtn" title="撤销 (Ctrl+Z)" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        </button>
+        <button class="icon-btn" id="redoBtn" title="重做 (Ctrl+Shift+Z)" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.13-9.36L23 10"/></svg>
+        </button>
+    </div>
+    <div class="header-right">
+        <button class="btn btn-primary" id="exportZipBtn" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>导出ZIP</span>
+        </button>
+    </div>
+</header>
+
+<main id="main">
+    <aside id="leftPanel">
+        <div id="uploadArea">
+            <div class="upload-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            </div>
+            <p>拖拽图片到此处<br>或点击上传</p>
+            <p class="upload-hint">支持 JPEG, PNG, WebP, BMP, GIF（单文件≤50MB）</p>
+            <input type="file" id="fileInput" multiple accept="image/jpeg,image/png,image/webp,image/bmp,image/gif" hidden>
+        </div>
+        <div id="selectAllBar">
+            <button class="btn btn-sm" id="selectAllBtn">全选</button>
+            <span id="imageCount">0 张图片</span>
+        </div>
+        <div id="thumbnailGrid"></div>
+    </aside>
+
+    <section id="rightPanel">
+        <div id="emptyState">
+            <div class="empty-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            </div>
+            <h2>开始编辑</h2>
+            <p>导入图片以开始批量编辑</p>
+        </div>
+
+        <div id="editorArea" style="display:none">
+            <div id="previewArea">
+                <canvas id="previewCanvas"></canvas>
+            </div>
+            <div id="tabBar">
+                <button class="tab-btn active" data-tab="adjust">调整</button>
+                <button class="tab-btn" data-tab="filter">滤镜</button>
+                <button class="tab-btn" data-tab="beauty">美颜</button>
+                <button class="tab-btn" data-tab="compress">压缩</button>
+                <button class="tab-btn" data-tab="rename">重命名</button>
+            </div>
+            <div id="tabContent">
+                <div class="tab-panel active" data-tab="adjust">
+                    <div class="slider-group"><label>亮度 <span id="brightnessVal">0</span></label><div class="slider-row"><input type="range" id="brightness" min="-100" max="100" value="0"><button class="reset-btn" data-target="brightness">重置</button></div></div>
+                    <div class="slider-group"><label>饱和度 <span id="saturationVal">0</span></label><div class="slider-row"><input type="range" id="saturation" min="-100" max="100" value="0"><button class="reset-btn" data-target="saturation">重置</button></div></div>
+                    <div class="slider-group"><label>对比度 <span id="contrastVal">0</span></label><div class="slider-row"><input type="range" id="contrast" min="-100" max="100" value="0"><button class="reset-btn" data-target="contrast">重置</button></div></div>
+                    <div class="slider-group"><label>色相 <span id="hueVal">0</span></label><div class="slider-row"><input type="range" id="hue" min="0" max="360" value="0"><button class="reset-btn" data-target="hue">重置</button></div></div>
+                </div>
+                <div class="tab-panel" data-tab="filter"><div id="filterGrid"></div></div>
+                <div class="tab-panel" data-tab="beauty">
+                    <div class="slider-group"><label>美白 <span id="whitenVal">0</span></label><div class="slider-row"><input type="range" id="whiten" min="0" max="100" value="0"><button class="reset-btn" data-target="whiten">重置</button></div></div>
+                    <div class="slider-group"><label>磨皮 <span id="smoothVal">0</span></label><div class="slider-row"><input type="range" id="smooth" min="0" max="100" value="0"><button class="reset-btn" data-target="smooth">重置</button></div></div>
+                    <div class="slider-group"><label>去瑕疵 <span id="blemishVal">0</span></label><div class="slider-row"><input type="range" id="blemish" min="0" max="100" value="0"><button class="reset-btn" data-target="blemish">重置</button></div></div>
+                </div>
+                <div class="tab-panel" data-tab="compress">
+                    <div class="slider-group"><label>质量 <span id="qualityVal">85</span></label><div class="slider-row"><input type="range" id="quality" min="1" max="100" value="85"></div></div>
+                    <div class="form-row"><div class="form-group"><label>最大宽度（px）</label><input type="number" id="maxWidth" min="0" value="0" placeholder="0=不限制"></div><div class="form-group"><label>最大高度（px）</label><input type="number" id="maxHeight" min="0" value="0" placeholder="0=不限制"></div></div>
+                    <div class="form-group"><label>输出格式</label><select id="outputFormat"><option value="image/jpeg">JPEG</option><option value="image/png">PNG</option><option value="image/webp">WebP</option></select></div>
+                    <div id="estimatedSize">预估大小: --</div>
+                </div>
+                <div class="tab-panel" data-tab="rename">
+                    <div class="form-group"><label>前缀</label><input type="text" id="renamePrefix" placeholder="例如: photo_"></div>
+                    <div class="form-row"><div class="form-group"><label>起始序号</label><input type="number" id="renameStart" min="0" value="1"></div><div class="form-group"><label>位数</label><input type="number" id="renameDigits" min="1" max="10" value="3"></div></div>
+                    <div class="form-group"><label>后缀</label><input type="text" id="renameSuffix" placeholder="例如: _edited"></div>
+                    <div id="renamePreview"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<footer id="footer">
+    <div id="progressArea">
+        <div id="progressBar"><div id="progressFill"></div></div>
+        <span id="progressText">就绪</span>
+    </div>
+    <div id="actionButtons">
+        <button class="btn btn-accent" id="applySelectedBtn" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="btn-text">应用到选中</span>
+        </button>
+        <button class="btn btn-accent" id="applyAllBtn" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="20 6 9 17 4 12"/></svg>
+            <span class="btn-text">应用到全部</span>
+        </button>
+        <button class="btn" id="downloadSelectedBtn" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span class="btn-text">下载选中</span>
+        </button>
+        <button class="btn" id="downloadAllBtn" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span class="btn-text">下载全部</span>
+        </button>
+    </div>
+</footer>
+
+<div id="toastContainer"></div>
+
+<script>
+/* ===================================================================
+   PixelForge - 批量图片修改工具
+   =================================================================== */
+
+// ===== 配置 =====
+var CONFIG = {
+    MAX_FILE_SIZE: 50 * 1024 * 1024,
+    ALLOWED_TYPES: ['image/jpeg','image/png','image/webp','image/bmp','image/gif'],
+    THUMB_SIZE: 200,
+    FILTER_THUMB_SIZE: 80,
+    MAX_HISTORY: 20,
+    DEBOUNCE_MS: 300,
+    WORKER_COUNT: Math.min(navigator.hardwareConcurrency || 4, 4),
+};
+
+// ===== 滤镜预设 =====
+var FILTERS = [
+    {id:'vintage',name:'复古',params:{brightness:10,saturation:-30,contrast:15,hue:15}},
+    {id:'bw',name:'黑白',params:{brightness:0,saturation:-100,contrast:10,hue:0}},
+    {id:'warm',name:'暖色',params:{brightness:5,saturation:15,contrast:5,hue:350}},
+    {id:'cool',name:'冷色',params:{brightness:-5,saturation:-10,contrast:5,hue:200}},
+    {id:'faded',name:'褪色',params:{brightness:10,saturation:-40,contrast:-20,hue:0}},
+    {id:'dramatic',name:'戏剧',params:{brightness:-10,saturation:-20,contrast:40,hue:0}},
+    {id:'vivid',name:'鲜艳',params:{brightness:5,saturation:40,contrast:15,hue:0}},
+];
+
+// ===== 应用状态 =====
+var state = {
+    images: [],
+    activeImageId: null,
+    activeFilter: null,
+    isProcessing: false,
+    progress: {current:0, total:0},
+    nextId: 1,
+};
+
+// ===== DOM =====
+var $ = function(s){return document.querySelector(s)};
+var $$ = function(s){return document.querySelectorAll(s)};
+
+var dom = {
+    uploadArea: $('#uploadArea'),
+    fileInput: $('#fileInput'),
+    selectAllBtn: $('#selectAllBtn'),
+    imageCount: $('#imageCount'),
+    thumbnailGrid: $('#thumbnailGrid'),
+    emptyState: $('#emptyState'),
+    editorArea: $('#editorArea'),
+    previewCanvas: $('#previewCanvas'),
+    tabBar: $('#tabBar'),
+    tabContent: $('#tabContent'),
+    filterGrid: $('#filterGrid'),
+    undoBtn: $('#undoBtn'),
+    redoBtn: $('#redoBtn'),
+    exportZipBtn: $('#exportZipBtn'),
+    applySelectedBtn: $('#applySelectedBtn'),
+    applyAllBtn: $('#applyAllBtn'),
+    downloadSelectedBtn: $('#downloadSelectedBtn'),
+    downloadAllBtn: $('#downloadAllBtn'),
+    progressFill: $('#progressFill'),
+    progressText: $('#progressText'),
+    toastContainer: $('#toastContainer'),
+    estimatedSize: $('#estimatedSize'),
+    renamePreview: $('#renamePreview'),
+    mobileToggle: $('#mobileToggle'),
+    leftPanel: $('#leftPanel'),
+};
+
+var previewCtx = dom.previewCanvas.getContext('2d');
+
+// ===== 工具函数 =====
+function clamp(v,lo,hi){return v<lo?lo:v>hi?hi:v}
+
+function debounce(fn,ms){
+    var t=null;
+    return function(){var a=arguments,c=this;clearTimeout(t);t=setTimeout(function(){fn.apply(c,a)},ms)};
+}
+
+function formatFileSize(b){
+    if(b<1024)return b+' B';
+    if(b<1048576)return(b/1024).toFixed(1)+' KB';
+    return(b/1048576).toFixed(2)+' MB';
+}
+
+function generateId(){return 'img_'+(state.nextId++)}
+
+// ===== Web Worker 源码 =====
+var WORKER_CODE = [
+'\'use strict\';',
+'function clamp(v,lo,hi){return v<lo?lo:v>hi?hi:v}',
+'function rgbToHsl(r,g,b){r/=255;g/=255;b/=255;var mx=Math.max(r,g,b),mn=Math.min(r,g,b),h=0,s=0,l=(mx+mn)/2;if(mx!==mn){var d=mx-mn;s=l>0.5?d/(2-mx-mn):d/(mx+mn);if(mx===r)h=((g-b)/d+(g<b?6:0))/6;else if(mx===g)h=((b-r)/d+2)/6;else h=((r-g)/d+4)/6}return[h*360,s,l]}',
+'function hslToRgb(h,s,l){h/=360;var r,g,b;if(s===0){r=g=b=l}else{function f(p,q,t){if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p}var q=l<0.5?l*(1+s):l+s-l*s;var p=2*l-q;r=f(p,q,h+1/3);g=f(p,q,h);b=f(p,q,h-1/3)}return[Math.round(r*255),Math.round(g*255),Math.round(b*255)]}',
+'function adjustBrightness(d,v){for(var i=0;i<d.length;i+=4){d[i]=clamp(d[i]+v,0,255);d[i+1]=clamp(d[i+1]+v,0,255);d[i+2]=clamp(d[i+2]+v,0,255)}}',
+'function adjustSaturation(d,v){var f=1+v/100;for(var i=0;i<d.length;i+=4){var g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];d[i]=clamp(g+(d[i]-g)*f,0,255);d[i+1]=clamp(g+(d[i+1]-g)*f,0,255);d[i+2]=clamp(g+(d[i+2]-g)*f,0,255)}}',
+'function adjustContrast(d,v){var f=(259*(v+255))/(255*(259-v));for(var i=0;i<d.length;i+=4){d[i]=clamp(f*(d[i]-128)+128,0,255);d[i+1]=clamp(f*(d[i+1]-128)+128,0,255);d[i+2]=clamp(f*(d[i+2]-128)+128,0,255)}}',
+'function adjustHue(d,v){if(v===0)return;var a=v*Math.PI/180,c=Math.cos(a),s=Math.sin(a);for(var i=0;i<d.length;i+=4){var r=d[i],g=d[i+1],b=d[i+2];d[i]=clamp(r*(0.213+c*0.787-s*0.213)+g*(0.715-c*0.715-s*0.715)+b*(0.072-c*0.072+s*0.928),0,255);d[i+1]=clamp(r*(0.213-c*0.213+s*0.143)+g*(0.715+c*0.285+s*0.140)+b*(0.072-c*0.072-s*0.283),0,255);d[i+2]=clamp(r*(0.213-c*0.213-s*0.787)+g*(0.715-c*0.715+s*0.715)+b*(0.072+c*0.928+s*0.072),0,255)}}',
+'function doAdjust(d,w,h,p){if(p.brightness!==0)adjustBrightness(d,p.brightness);if(p.saturation!==0)adjustSaturation(d,p.saturation);if(p.contrast!==0)adjustContrast(d,p.contrast);if(p.hue!==0)adjustHue(d,p.hue)}',
+// 肤色检测
+'function detectSkin(d,w,h){var m=new Uint8Array(w*h);for(var i=0;i<w*h;i++){var idx=i*4,r=d[idx],g=d[idx+1],b=d[idx+2];var y=0.299*r+0.587*g+0.114*b;var cb=128-0.168736*r-0.331264*g+0.5*b;var cr=128+0.5*r-0.418688*g-0.081312*b;m[i]=(y>60&&cb>=77&&cb<=127&&cr>=133&&cr<=173)?1:0}return m}',
+// 形态学闭运算
+'function morphClose(m,w,h,rad){var t=new Uint8Array(w*h);for(var y=0;y<h;y++){for(var x=0;x<w;x++){var found=false;for(var dy=-rad;dy<=rad&&!found;dy++){for(var dx=-rad;dx<=rad&&!found;dx++){var ny=y+dy,nx=x+dx;if(ny>=0&&ny<h&&nx>=0&&nx<w&&m[ny*w+nx])found=true}}t[y*w+x]=found?1:0}}for(var y2=0;y2<h;y2++){for(var x2=0;x2<w;x2++){var all=true;for(var dy2=-rad;dy2<=rad&&all;dy2++){for(var dx2=-rad;dx2<=rad&&all;dx2++){var ny2=y2+dy2,nx2=x2+dx2;if(ny2<0||ny2>=h||nx2<0||nx2>=w||!t[ny2*w+nx2])all=false}}m[y2*w+x2]=all?1:0}}}',
+// 美白
+'function applyWhitening(d,m,w,h,str){var amt=str*0.3;for(var i=0;i<w*h;i++){if(!m[i])continue;var idx=i*4;var hsl=rgbToHsl(d[idx],d[idx+1],d[idx+2]);hsl[2]=clamp(hsl[2]+amt*(1-hsl[2]),0,1);var rgb=hslToRgb(hsl[0],hsl[1],hsl[2]);d[idx]=rgb[0];d[idx+1]=rgb[1];d[idx+2]=rgb[2]}}',
+// 双边滤波
+'function applyBilateral(d,m,w,h,str){var sw=Math.floor(w/2),sh=Math.floor(h/2);if(sw<1||sh<1)return;var sd=new Uint8ClampedArray(sw*sh*4);var sm=new Uint8Array(sw*sh);for(var sy=0;sy<sh;sy++){for(var sx=0;sx<sw;sx++){var si=(sy*sw+sx)*4;sd[si]=d[(sy*2*w+sx*2)*4];sd[si+1]=d[(sy*2*w+sx*2)*4+1];sd[si+2]=d[(sy*2*w+sx*2)*4+2];sd[si+3]=255;sm[sy*sw+sx]=m[sy*2*w+sx*2]}}var res=new Uint8ClampedArray(sd.length);for(var i=0;i<sd.length;i++)res[i]=sd[i];var sigR=25,kR=3;for(var py=0;py<sh;py++){for(var px=0;px<sw;px++){var pi=py*sw+px;if(!sm[pi])continue;var pidx=pi*4;var sR=0,sG=0,sB=0,sW=0;for(var ky=-kR;ky<=kR;ky++){for(var kx=-kR;kx<=kR;kx++){var ny=py+ky,nx=px+kx;if(ny<0||ny>=sh||nx<0||nx>=sw)continue;var ni=(ny*sw+nx)*4;var dr=sd[pidx]-sd[ni],dg=sd[pidx+1]-sd[ni+1],db=sd[pidx+2]-sd[ni+2];var cd=dr*dr+dg*dg+db*db;var spW=Math.exp(-(kx*kx+ky*ky)/8);var rgW=Math.exp(-cd/(2*sigR*sigR));var wt=spW*rgW;sR+=sd[ni]*wt;sG+=sd[ni+1]*wt;sB+=sd[ni+2]*wt;sW+=wt}}if(sW>0){res[pidx]=clamp(Math.round(sR/sW),0,255);res[pidx+1]=clamp(Math.round(sG/sW),0,255);res[pidx+2]=clamp(Math.round(sB/sW),0,255)}}}for(var uy=0;uy<h;uy++){for(var ux=0;ux<w;ux++){var ui=uy*w+ux;if(!m[ui])continue;var uidx=ui*4;var sx2=Math.min(Math.floor(ux/2),sw-1);var sy2=Math.min(Math.floor(uy/2),sh-1);var si2=(sy2*sw+sx2)*4;d[uidx]=clamp(Math.round(d[uidx]*(1-str)+res[si2]*str),0,255);d[uidx+1]=clamp(Math.round(d[uidx+1]*(1-str)+res[si2+1]*str),0,255);d[uidx+2]=clamp(Math.round(d[uidx+2]*(1-str)+res[si2+2]*str),0,255)}}}',
+// 去瑕疵
+'function applyMedian(d,m,w,h,str){var rad=2;var tmp=new Uint8ClampedArray(d.length);for(var i=0;i<d.length;i++)tmp[i]=d[i];for(var my=0;my<h;my++){for(var mx=0;mx<w;mx++){var mi=my*w+mx;if(!m[mi])continue;var midx=mi*4;var rs=[],gs=[],bs=[];for(var dy=-rad;dy<=rad;dy++){for(var dx=-rad;dx<=rad;dx++){var ny=my+dy,nx=mx+dx;if(ny>=0&&ny<h&&nx>=0&&nx<w){var ni=(ny*w+nx)*4;rs.push(tmp[ni]);gs.push(tmp[ni+1]);bs.push(tmp[ni+2])}}}rs.sort(function(a,b){return a-b});gs.sort(function(a,b){return a-b});bs.sort(function(a,b){return a-b});var med=Math.floor(rs.length/2);var thr=60*str;if(Math.abs(tmp[midx]-rs[med])>thr)d[midx]=rs[med];if(Math.abs(tmp[midx+1]-gs[med])>thr)d[midx+1]=gs[med];if(Math.abs(tmp[midx+2]-bs[med])>thr)d[midx+2]=bs[med]}}}',
+// 美颜主函数
+'function doFaceBeauty(d,w,h,p){var wh=p.whiten||0,sm=p.smooth||0,bl=p.blemish||0;if(wh===0&&sm===0&&bl===0)return;var mask=detectSkin(d,w,h);morphClose(mask,w,h,2);if(wh>0)applyWhitening(d,mask,w,h,wh/100);if(sm>0)applyBilateral(d,mask,w,h,sm/100);if(bl>0)applyMedian(d,mask,w,h,bl/100)}',
+// 消息处理
+'self.onmessage=function(e){var msg=e.data,tid=msg.taskId;try{var px=new Uint8ClampedArray(msg.imageData);var w=msg.width,h=msg.height,p=msg.params;if(msg.type==="adjust")doAdjust(px,w,h,p);else if(msg.type==="faceBeauty")doFaceBeauty(px,w,h,p);else throw new Error("未知类型");self.postMessage({taskId:tid,type:"success",result:px.buffer},[px.buffer])}catch(err){self.postMessage({taskId:tid,type:"error",message:err.message})}};'
+].join('\n');
+
+// ===== Worker 池 =====
+var workers = [];
+var taskQueue = [];
+var taskCallbacks = {};
+
+function createWorkerPool(){
+    for(var i=0;i<CONFIG.WORKER_COUNT;i++){
+        var blob=new Blob([WORKER_CODE],{type:'application/javascript'});
+        var url=URL.createObjectURL(blob);
+        var w=new Worker(url);
+        w.onmessage=handleWorkerMsg;
+        w.onerror=function(e){console.error('Worker错误:',e)};
+        workers.push({worker:w,busy:false,currentTaskId:null});
+    }
+}
+
+function handleWorkerMsg(e){
+    var msg=e.data;
+    var cb=taskCallbacks[msg.taskId];
+    if(cb){
+        if(msg.type==='success')cb.resolve(msg.result);
+        else cb.reject(new Error(msg.message));
+        delete taskCallbacks[msg.taskId];
+    }
+    for(var i=0;i<workers.length;i++){
+        if(workers[i].currentTaskId===msg.taskId){
+            workers[i].busy=false;
+            workers[i].currentTaskId=null;
+            break;
+        }
+    }
+    processQueue();
+}
+
+function sendTask(type,buffer,width,height,params){
+    return new Promise(function(resolve,reject){
+        var tid='t_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
+        taskCallbacks[tid]={resolve:resolve,reject:reject};
+        taskQueue.push({taskId:tid,type:type,imageData:buffer,width:width,height:height,params:params});
+        processQueue();
+    });
+}
+
+function processQueue(){
+    for(var i=0;i<workers.length;i++){
+        var w=workers[i];
+        if(!w.busy&&taskQueue.length>0){
+            var task=taskQueue.shift();
+            w.busy=true;
+            w.currentTaskId=task.taskId;
+            w.worker.postMessage(task,[task.imageData]);
+        }
+    }
+}
+
+// ===== 文件导入 =====
+function validateFile(file){
+    if(CONFIG.ALLOWED_TYPES.indexOf(file.type)===-1){showToast('不支持的格式: '+file.name,'error');return false}
+    if(file.size>CONFIG.MAX_FILE_SIZE){showToast('文件过大(>50MB): '+file.name,'error');return false}
+    return true;
+}
+
+function loadImage(file){
+    return new Promise(function(resolve,reject){
+        var reader=new FileReader();
+        reader.onload=function(){
+            var img=new Image();
+            img.onload=function(){resolve(img)};
+            img.onerror=function(){reject(new Error('图片加载失败'))};
+            img.src=reader.result;
+        };
+        reader.onerror=function(){reject(new Error('读取失败'))};
+        reader.readAsDataURL(file);
+    });
+}
+
+function handleFiles(fileList){
+    var files=Array.prototype.slice.call(fileList);
+    var added=0;
+    var promises=files.map(function(file){
+        if(!validateFile(file))return Promise.resolve(null);
+        return loadImage(file).then(function(img){
+            var canvas=document.createElement('canvas');
+            canvas.width=img.width;canvas.height=img.height;
+            var ctx=canvas.getContext('2d');
+            ctx.drawImage(img,0,0);
+            var imageData=ctx.getImageData(0,0,img.width,img.height);
+            var thumb=generateThumbnail(imageData,img.width,img.height,CONFIG.THUMB_SIZE);
+            return {
+                id:generateId(),file:file,name:file.name,
+                width:img.width,height:img.height,
+                currentData:imageData,thumbnail:thumb,
+                history:[cloneImageData(imageData)],historyIndex:0,
+            };
+        }).catch(function(err){showToast('加载失败: '+file.name,'error');return null});
+    });
+    Promise.all(promises).then(function(results){
+        results.forEach(function(r){if(r){state.images.push(r);added++}});
+        if(added>0){
+            showToast('已导入 '+added+' 张图片','success');
+            renderThumbnails();
+            updateUI();
+            if(!state.activeImageId&&state.images.length>0){
+                selectImage(state.images[0].id,false);
+            }
+        }
+    });
+}
+
+function cloneImageData(imageData){
+    return new ImageData(new Uint8ClampedArray(imageData.data),imageData.width,imageData.height);
+}
+
+// ===== 缩略图 =====
+function generateThumbnail(imageData,w,h,size){
+    var canvas=document.createElement('canvas');
+    var scale=Math.min(size/w,size/h,1);
+    canvas.width=Math.round(w*scale);canvas.height=Math.round(h*scale);
+    var ctx=canvas.getContext('2d');
+    ctx.drawImage(imageDataToCanvas(imageData),0,0,canvas.width,canvas.height);
+    return canvas.toDataURL('image/jpeg',0.7);
+}
+
+function imageDataToCanvas(imageData){
+    var c=document.createElement('canvas');
+    c.width=imageData.width;c.height=imageData.height;
+    c.getContext('2d').putImageData(imageData,0,0);
+    return c;
+}
+
+function renderThumbnails(){
+    dom.thumbnailGrid.innerHTML='';
+    state.images.forEach(function(img){
+        var div=document.createElement('div');
+        div.className='thumb-item'+(img.id===state.activeImageId?' selected':'');
+        div.dataset.id=img.id;
+        div.innerHTML='<img src="'+img.thumbnail+'" alt="'+img.name+'"><div class="thumb-check">&#10003;</div><div class="thumb-info" title="'+img.name+'">'+img.name+'</div>';
+        div.addEventListener('click',function(e){
+            if(e.ctrlKey||e.metaKey){toggleSelect(img.id)}
+            else{selectImage(img.id,false)}
+        });
+        dom.thumbnailGrid.appendChild(div);
+    });
+    dom.imageCount.textContent=state.images.length+' 张图片';
+}
+
+// ===== 选择 =====
+function selectImage(id,addToSel){
+    state.activeImageId=id;
+    if(!addToSel){
+        state.images.forEach(function(img){
+            if(img.id!==id){
+                var el=dom.thumbnailGrid.querySelector('[data-id="'+img.id+'"]');
+                if(el)el.classList.remove('selected');
+            }
+        });
+    }
+    var el=dom.thumbnailGrid.querySelector('[data-id="'+id+'"]');
+    if(el)el.classList.add('selected');
+    updatePreview();
+    updateHistoryButtons();
+    updateUI();
+    generateFilterThumbnails();
+    updateEstimatedSize();
+    updateRenamePreview();
+}
+
+function toggleSelect(id){
+    var el=dom.thumbnailGrid.querySelector('[data-id="'+id+'"]');
+    if(!el)return;
+    if(el.classList.contains('selected')){
+        el.classList.remove('selected');
+        if(id===state.activeImageId)state.activeImageId=null;
+    }else{
+        el.classList.add('selected');
+        if(!state.activeImageId)state.activeImageId=id;
+    }
+    updateUI();
+}
+
+function selectAll(){
+    var allSel=state.images.every(function(img){
+        var el=dom.thumbnailGrid.querySelector('[data-id="'+img.id+'"]');
+        return el&&el.classList.contains('selected');
+    });
+    state.images.forEach(function(img){
+        var el=dom.thumbnailGrid.querySelector('[data-id="'+img.id+'"]');
+        if(el){if(allSel)el.classList.remove('selected');else el.classList.add('selected')}
+    });
+    if(!allSel&&state.images.length>0)state.activeImageId=state.images[0].id;
+    else state.activeImageId=null;
+    updateUI();
+}
+
+function getSelectedImages(){
+    var sel=[];
+    state.images.forEach(function(img){
+        var el=dom.thumbnailGrid.querySelector('[data-id="'+img.id+'"]');
+        if(el&&el.classList.contains('selected'))sel.push(img);
+    });
+    return sel;
+}
+
+function getActiveImage(){
+    for(var i=0;i<state.images.length;i++){
+        if(state.images[i].id===state.activeImageId)return state.images[i];
+    }
+    return null;
+}
+
+// ===== 预览 =====
+function updatePreview(){
+    var img=getActiveImage();
+    if(!img){dom.emptyState.style.display='flex';dom.editorArea.style.display='none';return}
+    dom.emptyState.style.display='none';dom.editorArea.style.display='flex';
+    var canvas=dom.previewCanvas;
+    var parent=canvas.parentElement;
+    var maxW=parent.clientWidth-20;var maxH=parent.clientHeight-20;
+    if(maxW<10)maxW=400;if(maxH<10)maxH=300;
+    var scale=Math.min(maxW/img.width,maxH/img.height,1);
+    canvas.width=Math.round(img.width*scale);
+    canvas.height=Math.round(img.height*scale);
+    previewCtx.drawImage(imageDataToCanvas(img.currentData),0,0,canvas.width,canvas.height);
+}
+
+var debouncedPreview=debounce(function(){requestPreviewUpdate()},CONFIG.DEBOUNCE_MS);
+
+function requestPreviewUpdate(){
+    var img=getActiveImage();
+    if(!img)return;
+    var params=getCurrentParams();
+    var hasAdj=params.brightness!==0||params.saturation!==0||params.contrast!==0||params.hue!==0;
+    var hasBeauty=params.whiten>0||params.smooth>0||params.blemish>0;
+    if(!hasAdj&&!hasBeauty){updatePreview();return}
+    try{
+        var parent=dom.previewCanvas.parentElement;
+        var maxW=parent.clientWidth-20;var maxH=parent.clientHeight-20;
+        if(maxW<10)maxW=400;if(maxH<10)maxH=300;
+        var scale=Math.min(maxW/img.width,maxH/img.height,1);
+        var pw=Math.round(img.width*scale);var ph=Math.round(img.height*scale);
+        var c=document.createElement('canvas');c.width=pw;c.height=ph;
+        var ctx=c.getContext('2d');
+        ctx.drawImage(imageDataToCanvas(img.currentData),0,0,pw,ph);
+        var pd=ctx.getImageData(0,0,pw,ph);
+        var buf=pd.data.buffer.slice(0);
+        var chain=Promise.resolve(buf);
+        if(hasAdj){
+            chain=chain.then(function(b){
+                return sendTask('adjust',b,pw,ph,{brightness:params.brightness,saturation:params.saturation,contrast:params.contrast,hue:params.hue});
+            });
+        }
+        if(hasBeauty){
+            chain=chain.then(function(b){
+                return sendTask('faceBeauty',b,pw,ph,{whiten:params.whiten,smooth:params.smooth,blemish:params.blemish});
+            });
+        }
+        chain.then(function(result){
+            pd.data.set(new Uint8ClampedArray(result));
+            dom.previewCanvas.width=pw;dom.previewCanvas.height=ph;
+            previewCtx.putImageData(pd,0,0);
+        }).catch(function(err){console.error('预览失败:',err)});
+    }catch(err){console.error('预览失败:',err)}
+}
+
+function getCurrentParams(){
+    return {
+        brightness:parseInt($('#brightness').value)||0,
+        saturation:parseInt($('#saturation').value)||0,
+        contrast:parseInt($('#contrast').value)||0,
+        hue:parseInt($('#hue').value)||0,
+        whiten:parseInt($('#whiten').value)||0,
+        smooth:parseInt($('#smooth').value)||0,
+        blemish:parseInt($('#blemish').value)||0,
+    };
+}
+
+// ===== 撤销/重做 =====
+function pushHistory(imgObj){
+    // 截断后面的历史
+    imgObj.history=imgObj.history.slice(0,imgObj.historyIndex+1);
+    imgObj.history.push(cloneImageData(imgObj.currentData));
+    if(imgObj.history.length>CONFIG.MAX_HISTORY)imgObj.history.shift();
+    imgObj.historyIndex=imgObj.history.length-1;
+    updateHistoryButtons();
+}
+
+function undo(){
+    var img=getActiveImage();
+    if(!img||img.historyIndex<=0)return;
+    img.historyIndex--;
+    img.currentData=cloneImageData(img.history[img.historyIndex]);
+    updatePreview();
+    updateHistoryButtons();
+    updateThumbnailForImage(img);
+}
+
+function redo(){
+    var img=getActiveImage();
+    if(!img||img.historyIndex>=img.history.length-1)return;
+    img.historyIndex++;
+    img.currentData=cloneImageData(img.history[img.historyIndex]);
+    updatePreview();
+    updateHistoryButtons();
+    updateThumbnailForImage(img);
+}
+
+function updateHistoryButtons(){
+    var img=getActiveImage();
+    dom.undoBtn.disabled=!img||img.historyIndex<=0;
+    dom.redoBtn.disabled=!img||img.historyIndex>=img.history.length-1;
+}
+
+function updateThumbnailForImage(img){
+    img.thumbnail=generateThumbnail(img.currentData,img.width,img.height,CONFIG.THUMB_SIZE);
+    var el=dom.thumbnailGrid.querySelector('[data-id="'+img.id+'"] img');
+    if(el)el.src=img.thumbnail;
+}
+
+// ===== 应用编辑 =====
+async function applyToImage(imgObj){
+    var params=getCurrentParams();
+    var hasAdj=params.brightness!==0||params.saturation!==0||params.contrast!==0||params.hue!==0;
+    var hasBeauty=params.whiten>0||params.smooth>0||params.blemish>0;
+    if(!hasAdj&&!hasBeauty)return;
+
+    var w=imgObj.width,h=imgObj.height;
+    var buf=imgObj.currentData.data.buffer.slice(0);
+    var chain=Promise.resolve(buf);
+
+    if(hasAdj){
+        chain=chain.then(function(b){
+            return sendTask('adjust',b,w,h,{brightness:params.brightness,saturation:params.saturation,contrast:params.contrast,hue:params.hue});
+        });
+    }
+    if(hasBeauty){
+        chain=chain.then(function(b){
+            return sendTask('faceBeauty',b,w,h,{whiten:params.whiten,smooth:params.smooth,blemish:params.blemish});
+        });
+    }
+
+    var result=await chain;
+    imgObj.currentData=new ImageData(new Uint8ClampedArray(result),w,h);
+    pushHistory(imgObj);
+    updateThumbnailForImage(imgObj);
+}
+
+async function applyToSelected(){
+    var sel=getSelectedImages();
+    if(sel.length===0){showToast('请先选择图片','info');return}
+    await batchProcess(sel,'应用到选中');
+}
+
+async function applyToAll(){
+    if(state.images.length===0){showToast('没有图片','info');return}
+    await batchProcess(state.images.slice(),'应用到全部');
+}
+
+async function batchProcess(images,label){
+    if(state.isProcessing)return;
+    state.isProcessing=true;
+    updateUI();
+    setProgress(0,images.length);
+    for(var i=0;i<images.length;i++){
+        try{
+            await applyToImage(images[i]);
+        }catch(err){
+            showToast('处理失败: '+images[i].name,'error');
+        }
+        setProgress(i+1,images.length);
+    }
+    updatePreview();
+    state.isProcessing=false;
+    setProgress(0,0);
+    updateUI();
+    showToast(label+'完成 ('+images.length+'张)','success');
+}
+
+// ===== 进度条 =====
+function setProgress(current,total){
+    state.progress.current=current;state.progress.total=total;
+    var pct=total>0?Math.round(current/total*100):0;
+    dom.progressFill.style.width=pct+'%';
+    if(current>0&&current<total){
+        dom.progressFill.classList.add('active');
+        dom.progressText.textContent=current+'/'+total+' 处理中...';
+    }else if(total>0&&current>=total){
+        dom.progressFill.classList.remove('active');
+        dom.progressText.textContent='全部完成';
+    }else{
+        dom.progressFill.classList.remove('active');
+        dom.progressText.textContent='就绪';
+    }
+}
+
+// ===== 压缩与导出 =====
+function getCompressParams(){
+    return {
+        quality:parseInt($('#quality').value)||85,
+        maxWidth:parseInt($('#maxWidth').value)||0,
+        maxHeight:parseInt($('#maxHeight').value)||0,
+        format:$('#outputFormat').value,
+    };
+}
+
+function compressImage(imgObj,cp){
+    return new Promise(function(resolve){
+        var canvas=document.createElement('canvas');
+        var w=imgObj.width,h=imgObj.height;
+        if(cp.maxWidth>0&&w>cp.maxWidth){var s=cp.maxWidth/w;w=cp.maxWidth;h=Math.round(h*s)}
+        if(cp.maxHeight>0&&h>cp.maxHeight){var s2=cp.maxHeight/h;h=cp.maxHeight;w=Math.round(w*s2)}
+        canvas.width=Math.max(1,w);canvas.height=Math.max(1,h);
+        var ctx=canvas.getContext('2d');
+        ctx.drawImage(imageDataToCanvas(imgObj.currentData),0,0,canvas.width,canvas.height);
+        canvas.toBlob(function(blob){
+            resolve({blob:blob,width:canvas.width,height:canvas.height});
+        },cp.format,cp.quality/100);
+    });
+}
+
+function getNewName(imgObj,index){
+    var prefix=$('#renamePrefix').value||'';
+    var start=parseInt($('#renameStart').value)||1;
+    var digits=parseInt($('#renameDigits').value)||3;
+    var suffix=$('#renameSuffix').value||'';
+    var num=String(start+index);
+    while(num.length<digits)num='0'+num;
+    var ext=getExtension(imgObj.name);
+    return prefix+num+suffix+'.'+ext;
+}
+
+function getExtension(name){
+    var idx=name.lastIndexOf('.');
+    return idx>=0?name.substr(idx+1).toLowerCase():'jpg';
+}
+
+function updateEstimatedSize(){
+    var img=getActiveImage();
+    if(!img){dom.estimatedSize.textContent='预估大小: --';return}
+    var cp=getCompressParams();
+    compressImage(img,cp).then(function(r){
+        dom.estimatedSize.textContent='预估大小: '+formatFileSize(r.blob.size);
+    }).catch(function(){dom.estimatedSize.textContent='预估大小: --'});
+}
+
+function updateRenamePreview(){
+    var preview=$('#renamePreview');
+    if(state.images.length===0){preview.innerHTML='';return}
+    var html='';
+    var count=Math.min(state.images.length,5);
+    for(var i=0;i<count;i++){
+        var newName=getNewName(state.images[i],i);
+        html+='<div class="rename-item">'+state.images[i].name+'<span class="arrow">&rarr;</span><span class="new-name">'+newName+'</span></div>';
+    }
+    if(state.images.length>5)html+='<div class="rename-item" style="color:var(--text-muted)">...还有 '+(state.images.length-5)+' 张</div>';
+    preview.innerHTML=html;
+}
+
+// ===== 下载 =====
+function downloadBlob(blob,name){
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){URL.revokeObjectURL(a.href);document.body.removeChild(a)},100);
+}
+
+async function downloadSelected(){
+    var sel=getSelectedImages();
+    if(sel.length===0){showToast('请先选择图片','info');return}
+    var cp=getCompressParams();
+    state.isProcessing=true;updateUI();
+    setProgress(0,sel.length);
+    for(var i=0;i<sel.length;i++){
+        try{
+            var r=await compressImage(sel[i],cp);
+            downloadBlob(r.blob,getNewName(sel[i],i));
+        }catch(err){showToast('下载失败: '+sel[i].name,'error')}
+        setProgress(i+1,sel.length);
+    }
+    state.isProcessing=false;setProgress(0,0);updateUI();
+}
+
+async function downloadAll(){
+    if(state.images.length===0){showToast('没有图片','info');return}
+    var cp=getCompressParams();
+    state.isProcessing=true;updateUI();
+    setProgress(0,state.images.length);
+    for(var i=0;i<state.images.length;i++){
+        try{
+            var r=await compressImage(state.images[i],cp);
+            downloadBlob(r.blob,getNewName(state.images[i],i));
+        }catch(err){showToast('下载失败: '+state.images[i].name,'error')}
+        setProgress(i+1,state.images.length);
+    }
+    state.isProcessing=false;setProgress(0,0);updateUI();
+}
+
+// ===== ZIP 打包 =====
+async function exportZip(){
+    if(state.images.length===0){showToast('没有图片','info');return}
+    state.isProcessing=true;updateUI();
+    setProgress(0,state.images.length);
+    var cp=getCompressParams();
+    var files=[];
+    for(var i=0;i<state.images.length;i++){
+        try{
+            var r=await compressImage(state.images[i],cp);
+            var buf=new Uint8Array(await r.blob.arrayBuffer());
+            files.push({name:getNewName(state.images[i],i),content:buf});
+        }catch(err){showToast('打包失败: '+state.images[i].name,'error')}
+        setProgress(i+1,state.images.length);
+    }
+    try{
+        var zipData=await createZip(files);
+        var blob=new Blob([zipData],{type:'application/zip'});
+        downloadBlob(blob,'PixelForge_'+Date.now()+'.zip');
+        showToast('ZIP导出成功 ('+files.length+'个文件)','success');
+    }catch(err){
+        showToast('ZIP打包失败: '+err.message,'error');
+    }
+    state.isProcessing=false;setProgress(0,0);updateUI();
+}
+
+// ===== 内嵌 ZIP 实现 =====
+async function createZip(files){
+    // 使用 CompressionStream API (deflate-raw)，不支持时回退无压缩
+    var useCompression=typeof CompressionStream!=='undefined';
+    var entries=[];
+    var offset=0;
+    var centralDir=[];
+
+    for(var i=0;i<files.length;i++){
+        var file=files[i];
+        var nameBytes=new TextEncoder().encode(file.name);
+        var data=file.content;
+        var crc=crc32(data);
+
+        var compressed;
+        if(useCompression){
+            try{
+                compressed=await deflateRaw(data);
+            }catch(e){
+                compressed=data;
+            }
+        }else{
+            compressed=data;
+        }
+
+        var localHeader=new Uint8Array(30+nameBytes.length+compressed.length);
+        var view=new DataView(localHeader.buffer);
+
+        // 本地文件头
+        view.setUint32(0,0x04034b50,true); // 签名
+        view.setUint16(4,20,true); // 版本
+        view.setUint16(6,0,true); // 标志
+        view.setUint16(8,useCompression?8:0,true); // 压缩方法
+        view.setUint16(10,0,true); // 修改时间
+        view.setUint16(12,0,true); // 修改日期
+        view.setUint32(14,crc,true); // CRC-32
+        view.setUint32(18,compressed.length,true); // 压缩大小
+        view.setUint32(22,data.length,true); // 原始大小
+        view.setUint16(26,nameBytes.length,true); // 文件名长度
+        view.setUint16(28,0,true); // 额外字段长度
+        localHeader.set(nameBytes,30);
+        localHeader.set(compressed,30+nameBytes.length);
+
+        entries.push(localHeader);
+
+        // 中央目录条目
+        var cdEntry=new Uint8Array(46+nameBytes.length);
+        var cdView=new DataView(cdEntry.buffer);
+        cdView.setUint32(0,0x02014b50,true); // 中央目录签名
+        cdView.setUint16(4,20,true); // 版本
+        cdView.setUint16(6,20,true); // 需要版本
+        cdView.setUint16(8,0,true); // 标志
+        cdView.setUint16(10,useCompression?8:0,true); // 压缩方法
+        cdView.setUint16(12,0,true); // 时间
+        cdView.setUint16(14,0,true); // 日期
+        cdView.setUint32(16,crc,true); // CRC-32
+        cdView.setUint32(20,compressed.length,true); // 压缩大小
+        cdView.setUint32(24,data.length,true); // 原始大小
+        cdView.setUint16(28,nameBytes.length,true); // 文件名长度
+        cdView.setUint16(30,0,true); // 额外字段长度
+        cdView.setUint16(32,0,true); // 注释长度
+        cdView.setUint16(34,0,true); // 磁盘号
+        cdView.setUint16(36,0,true); // 内部属性
+        cdView.setUint32(38,0,true); // 外部属性
+        cdView.setUint32(42,offset,true); // 本地头偏移
+        cdEntry.set(nameBytes,46);
+        centralDir.push(cdEntry);
+
+        offset+=localHeader.length;
+    }
+
+    // 结束中央目录记录
+    var cdSize=0;
+    for(var j=0;j<centralDir.length;j++)cdSize+=centralDir[j].length;
+    var eocd=new Uint8Array(22);
+    var eocdView=new DataView(eocd.buffer);
+    eocdView.setUint32(0,0x06054b50,true); // 签名
+    eocdView.setUint16(4,0,true); // 磁盘号
+    eocdView.setUint16(6,0,true); // 中央目录起始磁盘
+    eocdView.setUint16(8,files.length,true); // 条目数
+    eocdView.setUint16(10,files.length,true); // 总条目数
+    eocdView.setUint32(12,cdSize,true); // 中央目录大小
+    eocdView.setUint32(16,offset,true); // 中央目录偏移
+    eocdView.setUint16(20,0,true); // 注释长度
+
+    // 合并
+    var totalSize=offset+cdSize+22;
+    var result=new Uint8Array(totalSize);
+    var pos=0;
+    for(var k=0;k<entries.length;k++){result.set(entries[k],pos);pos+=entries[k].length}
+    for(var m=0;m<centralDir.length;m++){result.set(centralDir[m],pos);pos+=centralDir[m].length}
+    result.set(eocd,pos);
+    return result;
+}
+
+async function deflateRaw(data){
+    var cs=new CompressionStream('deflate-raw');
+    var writer=cs.writable.getWriter();
+    var reader=cs.readable.getReader();
+    writer.write(data);
+    writer.close();
+    var chunks=[];
+    while(true){
+        var r=await reader.read();
+        if(r.done)break;
+        chunks.push(r.value);
+    }
+    var totalLen=0;
+    for(var i=0;i<chunks.length;i++)totalLen+=chunks[i].length;
+    var result=new Uint8Array(totalLen);
+    var off=0;
+    for(var j=0;j<chunks.length;j++){result.set(chunks[j],off);off+=chunks[j].length}
+    return result;
+}
+
+function crc32(data){
+    var crc=0xFFFFFFFF;
+    for(var i=0;i<data.length;i++){
+        crc^=data[i];
+        for(var j=0;j<8;j++){
+            if(crc&1)crc=(crc>>>1)^0xEDB88320;
+            else crc=crc>>>1;
+        }
+    }
+    return (crc^0xFFFFFFFF)>>>0;
+}
+
+// ===== 滤镜 =====
+function generateFilterThumbnails(){
+    var img=getActiveImage();
+    if(!img){dom.filterGrid.innerHTML='';return}
+    dom.filterGrid.innerHTML='';
+    FILTERS.forEach(function(filter){
+        var div=document.createElement('div');
+        div.className='filter-item'+(state.activeFilter===filter.id?' active':'');
+        var canvas=document.createElement('canvas');
+        canvas.width=CONFIG.FILTER_THUMB_SIZE;
+        canvas.height=CONFIG.FILTER_THUMB_SIZE;
+        var ctx=canvas.getContext('2d');
+
+        // 缩放绘制
+        var scale=Math.min(CONFIG.FILTER_THUMB_SIZE/img.width,CONFIG.FILTER_THUMB_SIZE/img.height,1);
+        var dw=Math.round(img.width*scale);
+        var dh=Math.round(img.height*scale);
+        var dx=Math.round((CONFIG.FILTER_THUMB_SIZE-dw)/2);
+        var dy=Math.round((CONFIG.FILTER_THUMB_SIZE-dh)/2);
+        ctx.fillStyle='#222230';
+        ctx.fillRect(0,0,CONFIG.FILTER_THUMB_SIZE,CONFIG.FILTER_THUMB_SIZE);
+        ctx.drawImage(imageDataToCanvas(img.currentData),dx,dy,dw,dh);
+
+        // 应用滤镜参数
+        var imageData=ctx.getImageData(0,0,CONFIG.FILTER_THUMB_SIZE,CONFIG.FILTER_THUMB_SIZE);
+        var d=imageData.data;
+        var p=filter.params;
+        if(p.brightness!==0)for(var i=0;i<d.length;i+=4){d[i]=clamp(d[i]+p.brightness,0,255);d[i+1]=clamp(d[i+1]+p.brightness,0,255);d[i+2]=clamp(d[i+2]+p.brightness,0,255)}
+        if(p.saturation!==0){var f=1+p.saturation/100;for(var i2=0;i2<d.length;i2+=4){var g=0.299*d[i2]+0.587*d[i2+1]+0.114*d[i2+2];d[i2]=clamp(g+(d[i2]-g)*f,0,255);d[i2+1]=clamp(g+(d[i2+1]-g)*f,0,255);d[i2+2]=clamp(g+(d[i2+2]-g)*f,0,255)}}
+        if(p.contrast!==0){var cf=(259*(p.contrast+255))/(255*(259-p.contrast));for(var i3=0;i3<d.length;i3+=4){d[i3]=clamp(cf*(d[i3]-128)+128,0,255);d[i3+1]=clamp(cf*(d[i3+1]-128)+128,0,255);d[i3+2]=clamp(cf*(d[i3+2]-128)+128,0,255)}}
+        if(p.hue!==0){var a=p.hue*Math.PI/180,c=Math.cos(a),s=Math.sin(a);for(var i4=0;i4<d.length;i4+=4){var r=d[i4],g=d[i4+1],b=d[i4+2];d[i4]=clamp(r*(0.213+c*0.787-s*0.213)+g*(0.715-c*0.715-s*0.715)+b*(0.072-c*0.072+s*0.928),0,255);d[i4+1]=clamp(r*(0.213-c*0.213+s*0.143)+g*(0.715+c*0.285+s*0.140)+b*(0.072-c*0.072-s*0.283),0,255);d[i4+2]=clamp(r*(0.213-c*0.213-s*0.787)+g*(0.715-c*0.715+s*0.715)+b*(0.072+c*0.928+s*0.072),0,255)}}
+        ctx.putImageData(imageData,0,0);
+
+        var span=document.createElement('span');
+        span.textContent=filter.name;
+        div.appendChild(canvas);
+        div.appendChild(span);
+
+        div.addEventListener('click',function(){
+            applyFilter(filter);
+        });
+
+        dom.filterGrid.appendChild(div);
+    });
+}
+
+async function applyFilter(filter){
+    var img=getActiveImage();
+    if(!img)return;
+    state.activeFilter=filter.id;
+
+    // 更新滑块值
+    $('#brightness').value=filter.params.brightness;
+    $('#saturation').value=filter.params.saturation;
+    $('#contrast').value=filter.params.contrast;
+    $('#hue').value=filter.params.hue;
+    updateSliderDisplays();
+
+    // 高亮滤镜
+    dom.filterGrid.querySelectorAll('.filter-item').forEach(function(el,i){
+        el.classList.toggle('active',FILTERS[i].id===filter.id);
+    });
+
+    // 实时预览
+    debouncedPreview();
+}
+
+function updateSliderDisplays(){
+    $('#brightnessVal').textContent=$('#brightness').value;
+    $('#saturationVal').textContent=$('#saturation').value;
+    $('#contrastVal').textContent=$('#contrast').value;
+    $('#hueVal').textContent=$('#hue').value;
+    $('#whitenVal').textContent=$('#whiten').value;
+    $('#smoothVal').textContent=$('#smooth').value;
+    $('#blemishVal').textContent=$('#blemish').value;
+    $('#qualityVal').textContent=$('#quality').value;
+}
+
+// ===== Toast =====
+function showToast(message,type){
+    type=type||'info';
+    var toast=document.createElement('div');
+    toast.className='toast toast-'+type;
+    var iconSvg='';
+    if(type==='success')iconSvg='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+    else if(type==='error')iconSvg='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+    else iconSvg='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+    toast.innerHTML=iconSvg+'<span>'+message+'</span>';
+    dom.toastContainer.appendChild(toast);
+    requestAnimationFrame(function(){
+        requestAnimationFrame(function(){toast.classList.add('show')});
+    });
+    setTimeout(function(){
+        toast.classList.remove('show');
+        toast.classList.add('hide');
+        setTimeout(function(){if(toast.parentNode)toast.parentNode.removeChild(toast)},400);
+    },3000);
+}
+
+// ===== UI 更新 =====
+function updateUI(){
+    var hasImages=state.images.length>0;
+    var hasSelected=getSelectedImages().length>0;
+    dom.exportZipBtn.disabled=!hasImages||state.isProcessing;
+    dom.applySelectedBtn.disabled=!hasSelected||state.isProcessing;
+    dom.applyAllBtn.disabled=!hasImages||state.isProcessing;
+    dom.downloadSelectedBtn.disabled=!hasSelected||state.isProcessing;
+    dom.downloadAllBtn.disabled=!hasImages||state.isProcessing;
+    dom.selectAllBtn.textContent=hasImages?'全选':'全选';
+}
+
+// ===== 事件绑定 =====
+function initEvents(){
+    // 上传区域
+    dom.uploadArea.addEventListener('click',function(){dom.fileInput.click()});
+    dom.fileInput.addEventListener('change',function(e){
+        if(e.target.files.length>0)handleFiles(e.target.files);
+        e.target.value='';
+    });
+
+    // 拖拽
+    dom.uploadArea.addEventListener('dragenter',function(e){e.preventDefault();e.stopPropagation();dom.uploadArea.classList.add('drag-over')});
+    dom.uploadArea.addEventListener('dragover',function(e){e.preventDefault();e.stopPropagation()});
+    dom.uploadArea.addEventListener('dragleave',function(e){e.preventDefault();e.stopPropagation();dom.uploadArea.classList.remove('drag-over')});
+    dom.uploadArea.addEventListener('drop',function(e){
+        e.preventDefault();e.stopPropagation();
+        dom.uploadArea.classList.remove('drag-over');
+        if(e.dataTransfer.files.length>0)handleFiles(e.dataTransfer.files);
+    });
+
+    // 全局拖拽（阻止默认行为）
+    document.addEventListener('dragover',function(e){e.preventDefault()});
+    document.addEventListener('drop',function(e){e.preventDefault()});
+
+    // 全选
+    dom.selectAllBtn.addEventListener('click',selectAll);
+
+    // Tab 切换
+    dom.tabBar.addEventListener('click',function(e){
+        var btn=e.target.closest('.tab-btn');
+        if(!btn)return;
+        var tab=btn.dataset.tab;
+        dom.tabBar.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active')});
+        btn.classList.add('active');
+        dom.tabContent.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active')});
+        var panel=dom.tabContent.querySelector('[data-tab="'+tab+'"]');
+        if(panel)panel.classList.add('active');
+        if(tab==='compress')updateEstimatedSize();
+        if(tab==='rename')updateRenamePreview();
+    });
+
+    // 调整滑块
+    ['brightness','saturation','contrast','hue'].forEach(function(id){
+        var slider=$('#'+id);
+        slider.addEventListener('input',function(){
+            updateSliderDisplays();
+            state.activeFilter=null;
+            dom.filterGrid.querySelectorAll('.filter-item').forEach(function(el){el.classList.remove('active')});
+            debouncedPreview();
+        });
+    });
+
+    // 美颜滑块
+    ['whiten','smooth','blemish'].forEach(function(id){
+        var slider=$('#'+id);
+        slider.addEventListener('input',function(){
+            updateSliderDisplays();
+            debouncedPreview();
+        });
+    });
+
+    // 重置按钮
+    $$('.reset-btn').forEach(function(btn){
+        btn.addEventListener('click',function(){
+            var target=btn.dataset.target;
+            var slider=$('#'+target);
+            if(!slider)return;
+            var def=target==='hue'?0:target==='quality'?85:0;
+            slider.value=def;
+            updateSliderDisplays();
+            state.activeFilter=null;
+            dom.filterGrid.querySelectorAll('.filter-item').forEach(function(el){el.classList.remove('active')});
+            debouncedPreview();
+        });
+    });
+
+    // 压缩参数变化
+    $('#quality').addEventListener('input',function(){updateSliderDisplays();updateEstimatedSize()});
+    $('#maxWidth').addEventListener('change',updateEstimatedSize);
+    $('#maxHeight').addEventListener('change',updateEstimatedSize);
+    $('#outputFormat').addEventListener('change',updateEstimatedSize);
+
+    // 重命名参数变化
+    $('#renamePrefix').addEventListener('input',updateRenamePreview);
+    $('#renameStart').addEventListener('input',updateRenamePreview);
+    $('#renameDigits').addEventListener('input',updateRenamePreview);
+    $('#renameSuffix').addEventListener('input',updateRenamePreview);
+
+    // 撤销/重做
+    dom.undoBtn.addEventListener('click',undo);
+    dom.redoBtn.addEventListener('click',redo);
+
+    // 批量操作
+    dom.applySelectedBtn.addEventListener('click',applyToSelected);
+    dom.applyAllBtn.addEventListener('click',applyToAll);
+    dom.downloadSelectedBtn.addEventListener('click',downloadSelected);
+    dom.downloadAllBtn.addEventListener('click',downloadAll);
+    dom.exportZipBtn.addEventListener('click',exportZip);
+
+    // 快捷键
+    document.addEventListener('keydown',function(e){
+        if(e.ctrlKey&&e.shiftKey&&e.key==='Z'){e.preventDefault();redo()}
+        else if(e.ctrlKey&&e.key==='z'){e.preventDefault();undo()}
+    });
+
+    // 移动端切换
+    dom.mobileToggle.addEventListener('click',function(){
+        dom.leftPanel.classList.toggle('mobile-show');
+    });
+
+    // 窗口大小变化时更新预览
+    window.addEventListener('resize',debounce(function(){
+        if(getActiveImage())updatePreview();
+    },200));
+}
+
+// ===== 初始化 =====
+function init(){
+    createWorkerPool();
+    initEvents();
+    updateUI();
+    updateSliderDisplays();
+}
+
+init();
+</script>
+</body>
+</html>

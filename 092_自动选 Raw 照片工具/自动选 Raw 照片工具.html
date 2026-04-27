@@ -1,0 +1,1490 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAW照片挑选工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #00d4ff;
+            --secondary-color: #0099cc;
+            --bg-dark: #0a0e17;
+            --bg-card: #151b26;
+            --bg-hover: #1e2736;
+            --text-primary: #ffffff;
+            --text-secondary: #8b9aae;
+            --border-color: #2a3444;
+            --success-color: #00ff88;
+            --warning-color: #ffaa00;
+            --error-color: #ff4444;
+            --selected-color: #00d4ff;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* 背景动画效果 */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(0, 212, 255, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0, 153, 204, 0.03) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* 顶部工具栏 */
+        .toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: linear-gradient(180deg, rgba(21, 27, 38, 0.98) 0%, rgba(21, 27, 38, 0.95) 100%);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 1000;
+        }
+
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .app-title {
+            font-size: 20px;
+            font-weight: 600;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: var(--bg-dark);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-hover);
+            border-color: var(--primary-color);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .sort-select {
+            padding: 10px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .sort-select:hover {
+            border-color: var(--primary-color);
+        }
+
+        .sort-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2);
+        }
+
+        /* 主内容区域 */
+        .main-content {
+            margin-top: 60px;
+            margin-bottom: 60px;
+            padding: 24px;
+            min-height: calc(100vh - 120px);
+        }
+
+        /* 空状态 */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            text-align: center;
+        }
+
+        .empty-icon {
+            width: 120px;
+            height: 120px;
+            margin-bottom: 24px;
+            opacity: 0.3;
+        }
+
+        .empty-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .empty-desc {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+
+        /* 照片网格 */
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 20px;
+        }
+
+        .photo-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .photo-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            border-color: var(--border-color);
+        }
+
+        .photo-card.selected {
+            border-color: var(--selected-color);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .photo-card.selected::after {
+            content: '✓';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 28px;
+            height: 28px;
+            background: var(--selected-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--bg-dark);
+        }
+
+        .photo-thumbnail {
+            width: 100%;
+            aspect-ratio: 4/3;
+            object-fit: cover;
+            background: var(--bg-hover);
+        }
+
+        .photo-info {
+            padding: 12px;
+        }
+
+        .photo-name {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-primary);
+        }
+
+        .photo-meta {
+            font-size: 11px;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* 底部状态栏 */
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: linear-gradient(0deg, rgba(21, 27, 38, 0.98) 0%, rgba(21, 27, 38, 0.95) 100%);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            z-index: 1000;
+        }
+
+        .status-left {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .status-value {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        /* 全屏查看模式 */
+        .fullscreen-viewer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 14, 23, 0.98);
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
+        }
+
+        .fullscreen-viewer.active {
+            display: flex;
+        }
+
+        .viewer-toolbar {
+            height: 60px;
+            background: rgba(21, 27, 38, 0.9);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .viewer-title {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .viewer-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .viewer-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 8px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .viewer-btn:hover {
+            background: var(--bg-hover);
+            transform: scale(1.1);
+        }
+
+        .viewer-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .viewer-image-container {
+            max-width: 90%;
+            max-height: 90%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .viewer-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            transition: transform 0.3s ease;
+        }
+
+        .viewer-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 50px;
+            height: 80px;
+            background: rgba(21, 27, 38, 0.8);
+            border: none;
+            color: var(--text-primary);
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .viewer-nav:hover {
+            background: var(--bg-hover);
+        }
+
+        .viewer-nav.prev {
+            left: 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .viewer-nav.next {
+            right: 0;
+            border-radius: 8px 0 0 8px;
+        }
+
+        .viewer-status {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 8px 20px;
+            background: rgba(21, 27, 38, 0.9);
+            border-radius: 20px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .viewer-status .selected-indicator {
+            color: var(--selected-color);
+            margin-left: 12px;
+        }
+
+        /* 导出界面 */
+        .export-panel {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-dark);
+            z-index: 1500;
+            display: none;
+            flex-direction: column;
+        }
+
+        .export-panel.active {
+            display: flex;
+        }
+
+        .export-header {
+            height: 60px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+        }
+
+        .export-content {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+        }
+
+        .export-section {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .export-section-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+
+        .selected-count {
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 8px;
+        }
+
+        .selected-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .export-actions {
+            display: flex;
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .progress-container {
+            margin-top: 24px;
+            display: none;
+        }
+
+        .progress-container.active {
+            display: block;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--bg-hover);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 14px;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .export-result {
+            margin-top: 24px;
+            padding: 16px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .export-result.success {
+            display: block;
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid var(--success-color);
+        }
+
+        .export-result.error {
+            display: block;
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid var(--error-color);
+        }
+
+        /* Toast通知 */
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            right: 24px;
+            z-index: 3000;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .toast {
+            padding: 16px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            animation: slideIn 0.3s ease;
+            max-width: 400px;
+            word-wrap: break-word;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast.success {
+            background: rgba(0, 255, 136, 0.15);
+            border: 1px solid var(--success-color);
+            color: var(--success-color);
+        }
+
+        .toast.error {
+            background: rgba(255, 68, 68, 0.15);
+            border: 1px solid var(--error-color);
+            color: var(--error-color);
+        }
+
+        .toast.info {
+            background: rgba(0, 212, 255, 0.15);
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        /* 加载动画 */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 14, 23, 0.9);
+            z-index: 2500;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading-text {
+            margin-top: 20px;
+            font-size: 16px;
+            color: var(--text-secondary);
+        }
+
+        /* 快捷键提示 */
+        .shortcuts-help {
+            position: fixed;
+            bottom: 80px;
+            right: 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            z-index: 500;
+            display: none;
+            min-width: 280px;
+        }
+
+        .shortcuts-help.active {
+            display: block;
+        }
+
+        .shortcuts-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .shortcut-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .shortcut-item:last-child {
+            border-bottom: none;
+        }
+
+        .shortcut-key {
+            padding: 4px 10px;
+            background: var(--bg-hover);
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            color: var(--primary-color);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .photo-grid {
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+                gap: 12px;
+            }
+
+            .toolbar {
+                padding: 0 16px;
+            }
+
+            .toolbar-left {
+                gap: 12px;
+            }
+
+            .app-title {
+                font-size: 16px;
+            }
+
+            .btn {
+                padding: 8px 14px;
+                font-size: 13px;
+            }
+
+            .main-content {
+                padding: 16px;
+            }
+
+            .status-bar {
+                padding: 0 16px;
+            }
+
+            .viewer-nav {
+                width: 40px;
+                height: 60px;
+            }
+        }
+
+        /* 滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部工具栏 -->
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <h1 class="app-title">RAW照片挑选工具</h1>
+            <button class="btn btn-primary" id="btnSelectFolder">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                来源文件夹
+            </button>
+            <select class="sort-select" id="sortSelect" disabled>
+                <option value="">排序方式</option>
+                <option value="name-asc">文件名 (A-Z)</option>
+                <option value="name-desc">文件名 (Z-A)</option>
+                <option value="date-new">修改日期 (最新)</option>
+                <option value="date-old">修改日期 (最早)</option>
+                <option value="size-large">文件大小 (大→小)</option>
+                <option value="size-small">文件大小 (小→大)</option>
+            </select>
+        </div>
+        <div class="toolbar-right">
+            <button class="btn btn-secondary" id="btnFullscreen">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                </svg>
+                全屏
+            </button>
+            <button class="btn btn-secondary" id="btnHelp">?</button>
+        </div>
+    </div>
+
+    <!-- 主内容区域 -->
+    <div class="main-content">
+        <div class="empty-state" id="emptyState">
+            <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            <h2 class="empty-title">选择文件夹开始</h2>
+            <p class="empty-desc">点击"来源文件夹"按钮选择包含照片的文件夹</p>
+            <button class="btn btn-primary" id="btnSelectFolderEmpty">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                选择文件夹
+            </button>
+        </div>
+        <div class="photo-grid" id="photoGrid" style="display: none;"></div>
+    </div>
+
+    <!-- 底部状态栏 -->
+    <div class="status-bar">
+        <div class="status-left">
+            <div class="status-item">
+                <span>照片总数:</span>
+                <span class="status-value" id="totalCount">0</span>
+            </div>
+            <div class="status-item">
+                <span>已选择:</span>
+                <span class="status-value" id="selectedCount">0</span>
+            </div>
+        </div>
+        <div class="status-right">
+            <button class="btn btn-primary" id="btnComplete" disabled>
+                完成
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- 全屏查看模式 -->
+    <div class="fullscreen-viewer" id="fullscreenViewer">
+        <div class="viewer-toolbar">
+            <div class="viewer-title" id="viewerTitle">照片预览</div>
+            <div class="viewer-controls">
+                <button class="viewer-btn" id="btnZoomOut" title="缩小">-</button>
+                <button class="viewer-btn" id="btnZoomIn" title="放大">+</button>
+                <button class="viewer-btn" id="btnRotateLeft" title="逆时针旋转">↺</button>
+                <button class="viewer-btn" id="btnRotateRight" title="顺时针旋转">↻</button>
+                <button class="viewer-btn" id="btnSelectCurrent" title="选择/取消">☆</button>
+                <button class="viewer-btn" id="btnCloseViewer" title="关闭 (ESC)">✕</button>
+            </div>
+        </div>
+        <div class="viewer-content">
+            <button class="viewer-nav prev" id="btnPrev">‹</button>
+            <div class="viewer-image-container">
+                <img class="viewer-image" id="viewerImage" src="" alt="">
+            </div>
+            <button class="viewer-nav next" id="btnNext">›</button>
+            <div class="viewer-status">
+                <span id="viewerIndex">1 / 1</span>
+                <span class="selected-indicator" id="viewerSelected"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导出界面 -->
+    <div class="export-panel" id="exportPanel">
+        <div class="export-header">
+            <h2 class="app-title">导出RAW文件</h2>
+            <button class="btn btn-secondary" id="btnBack">返回</button>
+        </div>
+        <div class="export-content">
+            <div class="export-section">
+                <div class="export-section-title">已选择的照片</div>
+                <div class="selected-count" id="exportSelectedCount">0</div>
+                <div class="selected-label">张JPG照片已选择</div>
+            </div>
+            <div class="export-section">
+                <div class="export-section-title">导出设置</div>
+                <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 14px;">
+                    系统将自动查找与所选JPG照片同名的RAW格式文件（支持CR2、NEF、ARW、3FR、DNG、DATA、SR2格式）并复制到目标文件夹。
+                </p>
+                <div class="export-actions">
+                    <button class="btn btn-primary" id="btnSelectExportFolder">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                        选择导出文件夹
+                    </button>
+                </div>
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">准备导出...</div>
+                </div>
+                <div class="export-result" id="exportResult"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast通知容器 -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- 加载动画 -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loadingText">正在加载...</div>
+    </div>
+
+    <!-- 快捷键帮助 -->
+    <div class="shortcuts-help" id="shortcutsHelp">
+        <div class="shortcuts-title">键盘快捷键</div>
+        <div class="shortcut-item">
+            <span>上一张</span>
+            <span class="shortcut-key">←</span>
+        </div>
+        <div class="shortcut-item">
+            <span>下一张</span>
+            <span class="shortcut-key">→</span>
+        </div>
+        <div class="shortcut-item">
+            <span>选择照片</span>
+            <span class="shortcut-key">↑</span>
+        </div>
+        <div class="shortcut-item">
+            <span>取消选择</span>
+            <span class="shortcut-key">↓</span>
+        </div>
+        <div class="shortcut-item">
+            <span>关闭查看器</span>
+            <span class="shortcut-key">ESC</span>
+        </div>
+        <div class="shortcut-item">
+            <span>全屏模式</span>
+            <span class="shortcut-key">F11</span>
+        </div>
+    </div>
+
+    <script>
+        // 全局状态
+        const state = {
+            sourceFolder: null,
+            photos: [],
+            selectedPhotos: new Set(),
+            currentPhotoIndex: 0,
+            viewerScale: 1,
+            viewerRotation: 0,
+            isExporting: false
+        };
+
+        // RAW文件扩展名
+        const RAW_EXTENSIONS = ['.cr2', '.nef', '.arw', '.3fr', '.dng', '.data', '.sr2'];
+
+        // DOM元素
+        const elements = {
+            emptyState: document.getElementById('emptyState'),
+            photoGrid: document.getElementById('photoGrid'),
+            totalCount: document.getElementById('totalCount'),
+            selectedCount: document.getElementById('selectedCount'),
+            sortSelect: document.getElementById('sortSelect'),
+            btnComplete: document.getElementById('btnComplete'),
+            fullscreenViewer: document.getElementById('fullscreenViewer'),
+            viewerImage: document.getElementById('viewerImage'),
+            viewerTitle: document.getElementById('viewerTitle'),
+            viewerIndex: document.getElementById('viewerIndex'),
+            viewerSelected: document.getElementById('viewerSelected'),
+            exportPanel: document.getElementById('exportPanel'),
+            exportSelectedCount: document.getElementById('exportSelectedCount'),
+            progressContainer: document.getElementById('progressContainer'),
+            progressFill: document.getElementById('progressFill'),
+            progressText: document.getElementById('progressText'),
+            exportResult: document.getElementById('exportResult'),
+            loadingOverlay: document.getElementById('loadingOverlay'),
+            loadingText: document.getElementById('loadingText'),
+            toastContainer: document.getElementById('toastContainer'),
+            shortcutsHelp: document.getElementById('shortcutsHelp')
+        };
+
+        // 显示Toast通知
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            elements.toastContainer.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // 显示加载动画
+        function showLoading(text = '正在加载...') {
+            elements.loadingText.textContent = text;
+            elements.loadingOverlay.classList.add('active');
+        }
+
+        // 隐藏加载动画
+        function hideLoading() {
+            elements.loadingOverlay.classList.remove('active');
+        }
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 格式化日期
+        function formatDate(date) {
+            return new Date(date).toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // 递归扫描文件夹
+        async function scanFolder(folderHandle, path = '') {
+            const photos = [];
+            try {
+                for await (const entry of folderHandle.values()) {
+                    const entryPath = path ? `${path}/${entry.name}` : entry.name;
+                    if (entry.kind === 'directory') {
+                        const subPhotos = await scanFolder(entry, entryPath);
+                        photos.push(...subPhotos);
+                    } else if (entry.kind === 'file') {
+                        const ext = entry.name.toLowerCase().slice(entry.name.lastIndexOf('.'));
+                        if (['.jpg', '.jpeg'].includes(ext)) {
+                            const file = await entry.getFile();
+                            photos.push({
+                                handle: entry,
+                                file: file,
+                                name: entry.name,
+                                path: entryPath,
+                                size: file.size,
+                                lastModified: file.lastModified,
+                                id: entryPath
+                            });
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('扫描文件夹错误:', error);
+            }
+            return photos;
+        }
+
+        // 生成缩略图
+        async function generateThumbnail(photo) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const maxSize = 400;
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > height) {
+                        if (width > maxSize) {
+                            height *= maxSize / width;
+                            width = maxSize;
+                        }
+                    } else {
+                        if (height > maxSize) {
+                            width *= maxSize / height;
+                            height = maxSize;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.8));
+                };
+                img.onerror = () => resolve(null);
+                img.src = URL.createObjectURL(photo.file);
+            });
+        }
+
+        // 选择来源文件夹
+        async function selectSourceFolder() {
+            try {
+                const folderHandle = await window.showDirectoryPicker();
+                state.sourceFolder = folderHandle;
+                
+                showLoading('正在扫描照片...');
+                
+                // 扫描照片
+                state.photos = await scanFolder(folderHandle);
+                
+                if (state.photos.length === 0) {
+                    hideLoading();
+                    showToast('所选文件夹中没有找到JPG/JPEG照片', 'error');
+                    return;
+                }
+
+                // 生成缩略图
+                showLoading(`正在生成缩略图 (0/${state.photos.length})...`);
+                for (let i = 0; i < state.photos.length; i++) {
+                    state.photos[i].thumbnail = await generateThumbnail(state.photos[i]);
+                    elements.loadingText.textContent = `正在生成缩略图 (${i + 1}/${state.photos.length})...`;
+                }
+
+                hideLoading();
+                renderPhotos();
+                updateUI();
+                showToast(`成功加载 ${state.photos.length} 张照片`, 'success');
+            } catch (error) {
+                hideLoading();
+                if (error.name !== 'AbortError') {
+                    console.error('选择文件夹错误:', error);
+                    showToast('选择文件夹失败: ' + error.message, 'error');
+                }
+            }
+        }
+
+        // 渲染照片网格
+        function renderPhotos() {
+            if (state.photos.length === 0) {
+                elements.emptyState.style.display = 'flex';
+                elements.photoGrid.style.display = 'none';
+                return;
+            }
+
+            elements.emptyState.style.display = 'none';
+            elements.photoGrid.style.display = 'grid';
+            elements.photoGrid.innerHTML = '';
+
+            state.photos.forEach((photo, index) => {
+                const card = document.createElement('div');
+                card.className = `photo-card ${state.selectedPhotos.has(photo.id) ? 'selected' : ''}`;
+                card.dataset.index = index;
+                card.onclick = () => openViewer(index);
+
+                const img = document.createElement('img');
+                img.className = 'photo-thumbnail';
+                img.src = photo.thumbnail || '';
+                img.alt = photo.name;
+
+                const info = document.createElement('div');
+                info.className = 'photo-info';
+                info.innerHTML = `
+                    <div class="photo-name">${photo.name}</div>
+                    <div class="photo-meta">
+                        <span>${formatDate(photo.lastModified)}</span>
+                        <span>${formatFileSize(photo.size)}</span>
+                    </div>
+                `;
+
+                card.appendChild(img);
+                card.appendChild(info);
+                elements.photoGrid.appendChild(card);
+            });
+        }
+
+        // 更新UI状态
+        function updateUI() {
+            elements.totalCount.textContent = state.photos.length;
+            elements.selectedCount.textContent = state.selectedPhotos.size;
+            elements.sortSelect.disabled = state.photos.length === 0;
+            elements.btnComplete.disabled = state.selectedPhotos.size === 0;
+            elements.exportSelectedCount.textContent = state.selectedPhotos.size;
+        }
+
+        // 排序照片
+        function sortPhotos(sortType) {
+            if (!sortType) return;
+
+            switch (sortType) {
+                case 'name-asc':
+                    state.photos.sort((a, b) => a.name.localeCompare(b.name));
+                    break;
+                case 'name-desc':
+                    state.photos.sort((a, b) => b.name.localeCompare(a.name));
+                    break;
+                case 'date-new':
+                    state.photos.sort((a, b) => b.lastModified - a.lastModified);
+                    break;
+                case 'date-old':
+                    state.photos.sort((a, b) => a.lastModified - b.lastModified);
+                    break;
+                case 'size-large':
+                    state.photos.sort((a, b) => b.size - a.size);
+                    break;
+                case 'size-small':
+                    state.photos.sort((a, b) => a.size - b.size);
+                    break;
+            }
+            renderPhotos();
+        }
+
+        // 打开查看器
+        function openViewer(index) {
+            state.currentPhotoIndex = index;
+            state.viewerScale = 1;
+            state.viewerRotation = 0;
+            updateViewer();
+            elements.fullscreenViewer.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        // 关闭查看器
+        function closeViewer() {
+            elements.fullscreenViewer.classList.remove('active');
+            document.body.style.overflow = '';
+            URL.revokeObjectURL(elements.viewerImage.src);
+        }
+
+        // 更新查看器显示
+        function updateViewer() {
+            const photo = state.photos[state.currentPhotoIndex];
+            if (!photo) return;
+
+            elements.viewerTitle.textContent = photo.name;
+            elements.viewerIndex.textContent = `${state.currentPhotoIndex + 1} / ${state.photos.length}`;
+            elements.viewerSelected.textContent = state.selectedPhotos.has(photo.id) ? '★ 已选择' : '';
+            
+            URL.revokeObjectURL(elements.viewerImage.src);
+            elements.viewerImage.src = URL.createObjectURL(photo.file);
+            elements.viewerImage.style.transform = `scale(${state.viewerScale}) rotate(${state.viewerRotation}deg)`;
+            
+            document.getElementById('btnSelectCurrent').textContent = state.selectedPhotos.has(photo.id) ? '★' : '☆';
+        }
+
+        // 查看器导航
+        function prevPhoto() {
+            if (state.currentPhotoIndex > 0) {
+                state.currentPhotoIndex--;
+                state.viewerScale = 1;
+                state.viewerRotation = 0;
+                updateViewer();
+            }
+        }
+
+        function nextPhoto() {
+            if (state.currentPhotoIndex < state.photos.length - 1) {
+                state.currentPhotoIndex++;
+                state.viewerScale = 1;
+                state.viewerRotation = 0;
+                updateViewer();
+            }
+        }
+
+        // 缩放功能
+        function zoomIn() {
+            if (state.viewerScale < 5) {
+                state.viewerScale += 0.25;
+                elements.viewerImage.style.transform = `scale(${state.viewerScale}) rotate(${state.viewerRotation}deg)`;
+            }
+        }
+
+        function zoomOut() {
+            if (state.viewerScale > 0.25) {
+                state.viewerScale -= 0.25;
+                elements.viewerImage.style.transform = `scale(${state.viewerScale}) rotate(${state.viewerRotation}deg)`;
+            }
+        }
+
+        // 旋转功能
+        function rotateLeft() {
+            state.viewerRotation -= 90;
+            elements.viewerImage.style.transform = `scale(${state.viewerScale}) rotate(${state.viewerRotation}deg)`;
+        }
+
+        function rotateRight() {
+            state.viewerRotation += 90;
+            elements.viewerImage.style.transform = `scale(${state.viewerScale}) rotate(${state.viewerRotation}deg)`;
+        }
+
+        // 切换选择状态
+        function toggleSelection(index = state.currentPhotoIndex) {
+            const photo = state.photos[index];
+            if (!photo) return;
+
+            if (state.selectedPhotos.has(photo.id)) {
+                state.selectedPhotos.delete(photo.id);
+            } else {
+                state.selectedPhotos.add(photo.id);
+            }
+
+            // 更新缩略图显示
+            const card = elements.photoGrid.querySelector(`[data-index="${index}"]`);
+            if (card) {
+                card.classList.toggle('selected', state.selectedPhotos.has(photo.id));
+            }
+
+            // 如果在查看器中，更新查看器显示
+            if (elements.fullscreenViewer.classList.contains('active')) {
+                updateViewer();
+            }
+
+            updateUI();
+        }
+
+        // 选择当前照片
+        function selectCurrent() {
+            const photo = state.photos[state.currentPhotoIndex];
+            if (!photo) return;
+            if (!state.selectedPhotos.has(photo.id)) {
+                state.selectedPhotos.add(photo.id);
+                updateViewer();
+                updateUI();
+                const card = elements.photoGrid.querySelector(`[data-index="${state.currentPhotoIndex}"]`);
+                if (card) card.classList.add('selected');
+            }
+        }
+
+        // 取消选择当前照片
+        function deselectCurrent() {
+            const photo = state.photos[state.currentPhotoIndex];
+            if (!photo) return;
+            if (state.selectedPhotos.has(photo.id)) {
+                state.selectedPhotos.delete(photo.id);
+                updateViewer();
+                updateUI();
+                const card = elements.photoGrid.querySelector(`[data-index="${state.currentPhotoIndex}"]`);
+                if (card) card.classList.remove('selected');
+            }
+        }
+
+        // 显示导出面板
+        function showExportPanel() {
+            elements.exportPanel.classList.add('active');
+            elements.progressContainer.classList.remove('active');
+            elements.exportResult.className = 'export-result';
+            elements.exportResult.innerHTML = '';
+        }
+
+        // 隐藏导出面板
+        function hideExportPanel() {
+            elements.exportPanel.classList.remove('active');
+        }
+
+        // 选择导出文件夹并执行导出
+        async function selectExportFolder() {
+            if (state.isExporting) return;
+
+            try {
+                const folderHandle = await window.showDirectoryPicker();
+                await exportRawFiles(folderHandle);
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('导出错误:', error);
+                    showToast('导出失败: ' + error.message, 'error');
+                }
+            }
+        }
+
+        // 导出RAW文件
+        async function exportRawFiles(targetFolder) {
+            state.isExporting = true;
+            elements.progressContainer.classList.add('active');
+            elements.exportResult.className = 'export-result';
+            elements.exportResult.innerHTML = '';
+
+            const selectedPhotos = state.photos.filter(p => state.selectedPhotos.has(p.id));
+            const total = selectedPhotos.length;
+            let success = 0;
+            let failed = 0;
+            const failedFiles = [];
+
+            for (let i = 0; i < selectedPhotos.length; i++) {
+                const photo = selectedPhotos[i];
+                const baseName = photo.name.substring(0, photo.name.lastIndexOf('.'));
+                
+                elements.progressText.textContent = `正在导出: ${photo.name} (${i + 1}/${total})`;
+                elements.progressFill.style.width = `${((i + 1) / total) * 100}%`;
+
+                try {
+                    // 在源文件夹中查找对应的RAW文件
+                    const rawFile = await findRawFile(photo);
+                    if (rawFile) {
+                        await copyFileToFolder(rawFile, targetFolder);
+                        success++;
+                    } else {
+                        failed++;
+                        failedFiles.push(`${photo.name} (未找到RAW文件)`);
+                    }
+                } catch (error) {
+                    failed++;
+                    failedFiles.push(`${photo.name} (${error.message})`);
+                    console.error('复制文件错误:', error);
+                }
+            }
+
+            state.isExporting = false;
+            elements.progressText.textContent = `导出完成: ${success} 成功, ${failed} 失败`;
+
+            // 显示结果
+            if (failed === 0) {
+                elements.exportResult.className = 'export-result success';
+                elements.exportResult.innerHTML = `
+                    <strong>导出成功!</strong><br>
+                    成功导出 ${success} 个RAW文件到目标文件夹。
+                `;
+                showToast(`成功导出 ${success} 个文件`, 'success');
+            } else {
+                elements.exportResult.className = 'export-result error';
+                elements.exportResult.innerHTML = `
+                    <strong>导出完成，但有 ${failed} 个失败</strong><br>
+                    成功: ${success}, 失败: ${failed}<br>
+                    <small>${failedFiles.join('<br>')}</small>
+                `;
+                showToast(`导出完成: ${success} 成功, ${failed} 失败`, 'error');
+            }
+        }
+
+        // 查找RAW文件
+        async function findRawFile(photo) {
+            const baseName = photo.name.substring(0, photo.name.lastIndexOf('.'));
+            
+            // 从源文件夹开始递归查找
+            async function searchInFolder(folderHandle, path = '') {
+                for await (const entry of folderHandle.values()) {
+                    const entryPath = path ? `${path}/${entry.name}` : entry.name;
+                    if (entry.kind === 'directory') {
+                        const result = await searchInFolder(entry, entryPath);
+                        if (result) return result;
+                    } else if (entry.kind === 'file') {
+                        const ext = entry.name.toLowerCase().slice(entry.name.lastIndexOf('.'));
+                        const entryBaseName = entry.name.substring(0, entry.name.lastIndexOf('.'));
+                        if (RAW_EXTENSIONS.includes(ext) && entryBaseName.toLowerCase() === baseName.toLowerCase()) {
+                            return { handle: entry, path: entryPath };
+                        }
+                    }
+                }
+                return null;
+            }
+
+            return await searchInFolder(state.sourceFolder);
+        }
+
+        // 复制文件到目标文件夹
+        async function copyFileToFolder(sourceFileInfo, targetFolder) {
+            const file = await sourceFileInfo.handle.getFile();
+            const newFileHandle = await targetFolder.getFileHandle(file.name, { create: true });
+            const writable = await newFileHandle.createWritable();
+            await writable.write(file);
+            await writable.close();
+        }
+
+        // 切换全屏
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    showToast('无法进入全屏模式: ' + err.message, 'error');
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // 事件监听器
+        document.getElementById('btnSelectFolder').addEventListener('click', selectSourceFolder);
+        document.getElementById('btnSelectFolderEmpty').addEventListener('click', selectSourceFolder);
+        document.getElementById('btnFullscreen').addEventListener('click', toggleFullscreen);
+        document.getElementById('btnHelp').addEventListener('click', () => {
+            elements.shortcutsHelp.classList.toggle('active');
+        });
+        document.getElementById('btnComplete').addEventListener('click', showExportPanel);
+        document.getElementById('btnBack').addEventListener('click', hideExportPanel);
+        document.getElementById('btnSelectExportFolder').addEventListener('click', selectExportFolder);
+
+        // 排序选择
+        elements.sortSelect.addEventListener('change', (e) => {
+            sortPhotos(e.target.value);
+        });
+
+        // 查看器控制
+        document.getElementById('btnCloseViewer').addEventListener('click', closeViewer);
+        document.getElementById('btnPrev').addEventListener('click', prevPhoto);
+        document.getElementById('btnNext').addEventListener('click', nextPhoto);
+        document.getElementById('btnZoomIn').addEventListener('click', zoomIn);
+        document.getElementById('btnZoomOut').addEventListener('click', zoomOut);
+        document.getElementById('btnRotateLeft').addEventListener('click', rotateLeft);
+        document.getElementById('btnRotateRight').addEventListener('click', rotateRight);
+        document.getElementById('btnSelectCurrent').addEventListener('click', () => toggleSelection());
+
+        // 键盘快捷键
+        document.addEventListener('keydown', (e) => {
+            // F11 全屏
+            if (e.key === 'F11') {
+                e.preventDefault();
+                toggleFullscreen();
+                return;
+            }
+
+            // 查看器打开时的快捷键
+            if (elements.fullscreenViewer.classList.contains('active')) {
+                switch (e.key) {
+                    case 'Escape':
+                        closeViewer();
+                        break;
+                    case 'ArrowLeft':
+                        prevPhoto();
+                        break;
+                    case 'ArrowRight':
+                        nextPhoto();
+                        break;
+                    case 'ArrowUp':
+                        selectCurrent();
+                        break;
+                    case 'ArrowDown':
+                        deselectCurrent();
+                        break;
+                }
+            }
+        });
+
+        // 点击空白处关闭快捷键帮助
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#btnHelp') && !e.target.closest('#shortcutsHelp')) {
+                elements.shortcutsHelp.classList.remove('active');
+            }
+        });
+
+        // 初始化
+        showToast('欢迎使用RAW照片挑选工具！点击"来源文件夹"开始', 'info');
+    </script>
+</body>
+</html>
