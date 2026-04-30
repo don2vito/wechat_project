@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataQuery Pro - 数据查询分析系统</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app" class="app-container">
+        <div id="auth-screen" class="auth-screen">
+            <div class="auth-container">
+                <div class="auth-logo">
+                    <div class="logo-icon">
+                        <i class="fas fa-database"></i>
+                    </div>
+                    <h1>DataQuery Pro</h1>
+                    <p>专业数据查询分析平台</p>
+                </div>
+                
+                <div class="auth-tabs">
+                    <button class="auth-tab active" data-tab="login">登录</button>
+                    <button class="auth-tab" data-tab="register">注册</button>
+                </div>
+                
+                <form id="login-form" class="auth-form active">
+                    <div class="form-group">
+                        <label>用户名</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-user"></i>
+                            <input type="text" id="login-username" placeholder="请输入用户名" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>密码</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="login-password" placeholder="请输入密码" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="auth-button">
+                        <span>登录</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </form>
+                
+                <form id="register-form" class="auth-form">
+                    <div class="form-group">
+                        <label>用户名</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-user"></i>
+                            <input type="text" id="reg-username" placeholder="请输入用户名" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>密码</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="reg-password" placeholder="请输入密码" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>确认密码</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="reg-confirm" placeholder="请再次输入密码" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="auth-button">
+                        <span>注册</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <div id="main-app" class="main-app hidden">
+            <header class="app-header">
+                <div class="header-left">
+                    <div class="logo">
+                        <i class="fas fa-database"></i>
+                        <span>DataQuery Pro</span>
+                    </div>
+                </div>
+                
+                <div class="header-center">
+                    <nav class="main-nav">
+                        <button class="nav-btn" data-view="import">
+                            <i class="fas fa-file-import"></i>
+                            <span>导入</span>
+                        </button>
+                        <button class="nav-btn active" data-view="query">
+                            <i class="fas fa-terminal"></i>
+                            <span>查询</span>
+                        </button>
+    
+                    </nav>
+                </div>
+                
+                <div class="header-right">
+                    <div class="user-info">
+                        <span id="user-display"></span>
+                        <button id="logout-btn" class="logout-btn" title="退出登录">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </header>
+            
+            <main class="app-main">
+                <aside class="sidebar">
+                    <div class="sidebar-header">
+                        <h3>
+                            <i class="fas fa-table"></i>
+                            数据表
+                        </h3>
+                        <button id="refresh-tables" class="icon-btn" title="刷新">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="sidebar-search">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="table-search" placeholder="搜索表或字段...">
+                    </div>
+                    
+                    <div id="table-tree" class="table-tree">
+                        <div class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <p>暂无数据表</p>
+                            <small>请先导入数据文件</small>
+                        </div>
+                    </div>
+                </aside>
+                
+                <section class="content-area">
+                    <div id="query-view" class="view active">
+                        <div class="query-panel">
+                            <div class="panel-header">
+                                <h3>
+                                    <i class="fas fa-code"></i>
+                                    SQL 查询编辑器
+                                </h3>
+                                <div class="panel-actions">
+                                    <button id="format-sql" class="action-btn" title="格式化SQL">
+                                        <i class="fas fa-indent"></i>
+                                    </button>
+                                    <button id="clear-editor" class="action-btn" title="清空">
+                                        <i class="fas fa-eraser"></i>
+                                    </button>
+                                    <button id="execute-query" class="execute-btn">
+                                        <i class="fas fa-play"></i>
+                                        <span>执行查询</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="editor-container">
+                                <div class="line-numbers" id="line-numbers"></div>
+                                <textarea id="sql-editor" placeholder="输入 SQL 查询语句...&#10;&#10;示例:&#10;SELECT * FROM 表名 LIMIT 100;"></textarea>
+                                <div class="autocomplete-dropdown" id="autocomplete-dropdown">
+                                    <div class="autocomplete-list" id="autocomplete-list"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="editor-footer">
+                                <div class="query-hints">
+                                    <span class="hint-tag">Ctrl+Enter 执行</span>
+                                    <span class="hint-tag">Ctrl+Shift+F 格式化</span>
+                                </div>
+                                <div id="query-status" class="query-status"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="results-panel">
+                            <div class="panel-header">
+                                <h3>
+                                    <i class="fas fa-table"></i>
+                                    查询结果
+                                </h3>
+                                <div class="panel-actions">
+                                    <span id="result-count" class="result-count"></span>
+                                    <button id="export-excel" class="action-btn" title="导出Excel" disabled>
+                                        <i class="fas fa-file-excel"></i>
+                                        <span>导出</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="results-container">
+                                <div id="results-placeholder" class="results-placeholder">
+                                    <i class="fas fa-search"></i>
+                                    <p>执行查询以查看结果</p>
+                                </div>
+                                
+                                <div id="results-loading" class="results-loading hidden">
+                                    <div class="loading-spinner"></div>
+                                    <p>查询执行中...</p>
+                                </div>
+                                
+                                <div id="results-table-wrapper" class="results-table-wrapper hidden">
+                                    <table id="results-table" class="results-table">
+                                        <thead id="results-thead"></thead>
+                                        <tbody id="results-tbody"></tbody>
+                                    </table>
+                                </div>
+                                
+                                <div id="pagination" class="pagination hidden">
+                                    <button id="prev-page" class="page-btn" disabled>
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <span id="page-info" class="page-info">第 1 页</span>
+                                    <button id="next-page" class="page-btn">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="import-view" class="view">
+                        <div class="import-container">
+                            <div class="import-header">
+                                <h2>数据导入</h2>
+                                <p>支持 Excel、CSV、TXT 等格式的数据文件</p>
+                            </div>
+                            
+                            <div class="upload-zone" id="upload-zone">
+                                <div class="upload-content">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <h3>拖放文件到此处</h3>
+                                    <p>或点击选择文件</p>
+                                    <div class="supported-formats">
+                                        <span class="format-tag">.xlsx</span>
+                                        <span class="format-tag">.xls</span>
+                                        <span class="format-tag">.csv</span>
+                                        <span class="format-tag">.txt</span>
+                                    </div>
+                                </div>
+                                <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.txt" hidden>
+                            </div>
+                            
+                            <div id="upload-progress" class="upload-progress hidden">
+                                <div class="progress-header">
+                                    <span id="upload-filename"></span>
+                                    <span id="upload-percent">0%</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div id="progress-fill" class="progress-fill"></div>
+                                </div>
+                            </div>
+                            
+                            <div id="column-config" class="column-config hidden">
+                                <h3>字段配置</h3>
+                                <p>请为每个字段选择合适的数据类型</p>
+                                
+                                <div class="table-name-input">
+                                    <label>表名</label>
+                                    <input type="text" id="import-table-name" placeholder="输入表名">
+                                </div>
+                                
+                                <div class="columns-list" id="columns-list"></div>
+                                
+                                <div class="import-actions">
+                                    <button id="confirm-import" class="primary-btn">
+                                        <i class="fas fa-check"></i>
+                                        确认导入
+                                    </button>
+                                    <button id="cancel-import" class="secondary-btn">
+                                        <i class="fas fa-times"></i>
+                                        取消
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </section>
+            </main>
+        </div>
+        
+        <div id="toast-container" class="toast-container"></div>
+        
+        <div id="modal-overlay" class="modal-overlay hidden">
+            <div id="modal-content" class="modal-content"></div>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
